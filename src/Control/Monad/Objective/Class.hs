@@ -12,7 +12,9 @@ infix 3 .&
 class Monad m => MonadObjective s m where
   type Base m :: * -> *
   data Control s (e :: * -> *)
+  -- | Send a message to the pointed one.
   (.-) :: Control s e -> e a -> m a
+  -- | Add an object to the environment.
   invoke :: Object e (Base m) -> m (Control s e)
 
 (.&) :: (MonadObjective k m, Stateful s e) => Control k e -> StateT s m a -> m a
