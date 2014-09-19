@@ -1,5 +1,6 @@
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module Control.Object where
 
 import Control.Comonad.Zero
@@ -7,6 +8,7 @@ import Control.Comonad
 import Control.Monad.Trans.State
 import Control.Monad
 import Data.Typeable
+import Control.Applicative
 
 -- | The type 'Object e m' represents objects which can handle messages 'e', perform actions in the environment 'm'.
 -- It can be thought of as a function between effects.
@@ -22,7 +24,7 @@ transObject :: Functor g => (forall x. f x -> g x) -> Object e f -> Object e g
 transObject f (Object m) = Object $ fmap (fmap (transObject f)) . f . m
 
 -- | Apply a function to the messages coming into the object.
-adaptObject :: Functor f => (forall x. e x -> f x) -> Object f m -> Object e m
+adaptObject :: Functor m => (forall x. e x -> f x) -> Object f m -> Object e m
 adaptObject f (Object m) = Object $ fmap (fmap (adaptObject f)) . m . f
 
 -- | Parrots messages given.
@@ -49,7 +51,7 @@ stateful m = go where
 {-# INLINE stateful #-}
 
 -- | Like 'MonadState', but doesn't require 'Monad' as a prerequisite.
-class Stateful s f where
+class Stateful s f | f -> s where
   get_ :: f s
   put_ :: s -> f ()
 
