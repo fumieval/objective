@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances #-}
+{-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies #-}
 module Control.Object where
@@ -9,10 +9,13 @@ import Control.Monad.Trans.State
 import Control.Monad
 import Data.Typeable
 import Control.Applicative
+import Data.Maybe
+import Control.Monad.Free
+import Control.Monad.Trans.Maybe
 
--- | The type 'Object e m' represents objects which can handle messages 'e', perform actions in the environment 'm'.
+-- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
 -- It can be thought of as a function between effects.
--- Thus, it can be composed just like functions using '(.>>.)' (not often needed); the identity element is `echo`.
+-- Thus, it can be composed just like functions using '.>>.' (not often needed); the identity element is 'echo'.
 newtype Object e m = Object { runObject :: forall x. e x -> m (x, Object e m) } deriving Typeable
 
 -- | Lift a natural transformation into an object.
@@ -68,3 +71,11 @@ variable s = Object $ \x -> case x of
   Get cont -> pure (cont s, variable s)
   Put s' cont -> pure (cont, variable s')
   LiftAccessT e -> pure (extract e, variable s)
+
+-- | Convert a method /sequence/ into a sequential method /execution/.
+sequential :: Monad m => Object e m -> Object (Free e) m
+sequential obj = Object $ \x -> case x of
+  Pure a -> return (a, sequential obj)
+  Free f -> do
+    (a, obj') <- runObject obj f
+    runObject (sequential obj') a
