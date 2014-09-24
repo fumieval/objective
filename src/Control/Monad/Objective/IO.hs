@@ -28,6 +28,4 @@ instance MonadObjective IO where
       (a, c') <- runObject c e
       putMVar m c'
       return a
-  invoke v = do
-      m <- newMVar v
-      return (Address m)
+  new v = Address `fmap` newMVar v
