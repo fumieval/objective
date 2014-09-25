@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
-{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
 module Control.Object where
 
 import Control.Comonad.Zero
@@ -14,8 +14,8 @@ import Control.Monad.Free
 import Control.Monad.Trans.Maybe
 
 -- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
--- It can be thought of as a function between effects.
--- Thus, it can be composed just like functions using '.>>.' (not often needed); the identity element is 'echo'.
+-- It can be thought of as an automaton that converts effects.
+-- 'Object's can be composed just like functions using '.>>.'; the identity element is 'echo'.
 newtype Object e m = Object { runObject :: forall x. e x -> m (x, Object e m) } deriving Typeable
 
 -- | Lift a natural transformation into an object.
@@ -45,13 +45,18 @@ oneshot m = go where
 {-# INLINE oneshot #-}
 
 -- | Build a stateful object.
-stateful :: (Functor e, Monad m) => (forall a. e (StateT s m a) -> StateT s m a) -> s -> Object (AccessT s e) m
-stateful m = go where
+stateful :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object e m
+stateful h = go where
+  go s = Object $ liftM (\(a, s) -> (a, go s)) . flip runStateT s . h
+
+-- | Build a stateful object, sharing out the state.
+sharing :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object (AccessT s e) m
+sharing m = go where
   go s = Object $ \k -> liftM (fmap go) $ case k of
-    LiftAccessT e -> runStateT (m (fmap return e)) s
+    LiftAccessT e -> runStateT (m e) s
     Get cont -> return (cont s, s)
     Put s' cont -> return (cont, s')
-{-# INLINE stateful #-}
+{-# INLINE sharing #-}
 
 -- | Like 'MonadState', but doesn't require 'Monad' as a prerequisite.
 class Stateful s f | f -> s where
@@ -65,14 +70,20 @@ instance Stateful s (AccessT s f) where
   get_ = Get id
   put_ s = Put s ()
 
+instance (Functor f, Stateful s f) => Stateful s (Free f) where
+  get_ = liftF get_
+  put_ = liftF . put_
+
 -- | A mutable variable.
-variable :: Applicative f => s -> Object (AccessT s Zero) f
+variable :: Applicative f => s -> Object (Access s) f
 variable s = Object $ \x -> case x of
   Get cont -> pure (cont s, variable s)
   Put s' cont -> pure (cont, variable s')
   LiftAccessT e -> pure (extract e, variable s)
 
--- | Convert a method /sequence/ into a sequential method /execution/.
+type Access s = AccessT s Zero
+
+-- | Convert a /method sequence/ into a sequential /method execution/.
 sequential :: Monad m => Object e m -> Object (Free e) m
 sequential obj = Object $ \x -> case x of
   Pure a -> return (a, sequential obj)
