@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE CPP #-}
 
 module Control.Monad.Objective.Class where
@@ -26,9 +27,10 @@ import qualified Control.Monad.Trans.RWS.Strict as StrictRWS
 import Data.Monoid
 import Control.Monad
 import Control.Monad.Free
+import Data.OpenUnion1.Clean
 
 infix 3 .-
-infix 3 .&
+-- infix 3 .&
 
 class Monad m => MonadObjective m where
 
@@ -40,12 +42,7 @@ class Monad m => MonadObjective m where
   -- | Add an object to the environment.
   new :: Object e (Residence m) -> m (Address e m)
 
--- | Old synonym for 'new'.
-invoke :: MonadObjective m => Object e (Residence m) -> m (Address e m)
-invoke = new
-{-# DEPRECATED invoke "Use new instead of misleading invoke" #-} 
-
-(.&) :: (MonadObjective m, Stateful s e) => Address e m -> Strict.StateT s m a -> m a
+(.&) :: (MonadObjective m, Stateful s f) => Address f m -> Strict.StateT s m a -> m a
 c .& m = do
   s <- c .- get_
   (a, s') <- Strict.runStateT m s
@@ -56,6 +53,9 @@ c .& m = do
 (.|-) :: MonadObjective m => Address e m -> Free e a -> m a
 _ .|- Pure a = return a
 c .|- Free f = c .- f >>= (c .|-)
+
+(^>) :: (MonadObjective m, f ∈ u) => Address (Union u) m -> f a -> m a
+c ^> f = c .- liftU f
 
 instance MonadObjective m => MonadObjective (ReaderT r m) where
   data Address e (ReaderT r m) = WrapReaderT (Address e m)
