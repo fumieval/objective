@@ -30,7 +30,9 @@ import Control.Monad.Free
 import Data.OpenUnion1.Clean
 
 infix 3 .-
--- infix 3 .&
+infix 3 .&
+infix 3 .|-
+infix 3 .^>
 
 class Monad m => MonadObjective m where
 
@@ -54,8 +56,8 @@ c .& m = do
 _ .|- Pure a = return a
 c .|- Free f = c .- f >>= (c .|-)
 
-(^>) :: (MonadObjective m, f ∈ u) => Address (Union u) m -> f a -> m a
-c ^> f = c .- liftU f
+(.^>) :: (MonadObjective m, f ∈ u) => Address (Union u) m -> f a -> m a
+c .^> f = c .- liftU f
 
 instance MonadObjective m => MonadObjective (ReaderT r m) where
   data Address e (ReaderT r m) = WrapReaderT (Address e m)
