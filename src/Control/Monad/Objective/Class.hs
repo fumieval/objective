@@ -2,6 +2,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE CPP #-}
 
 module Control.Monad.Objective.Class where
@@ -44,7 +45,7 @@ class Monad m => MonadObjective m where
   -- | Add an object to the environment.
   new :: Object e (Residence m) -> m (Address e m)
 
-(.&) :: (MonadObjective m, Stateful s f) => Address f m -> Strict.StateT s m a -> m a
+(.&) :: (MonadObjective m, Lift (Strict.State s) f) => Address f m -> Strict.StateT s m a -> m a
 c .& m = do
   s <- c .- get_
   (a, s') <- Strict.runStateT m s

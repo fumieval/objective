@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators, TupleSections #-}
 module Control.Object where
 
 import Control.Comonad.Zero
@@ -62,42 +62,50 @@ sequential obj = Object $ \x -> case x of
     (a, obj') <- runObject obj f
     runObject (sequential obj') a
 
--- | Build a stateful object, sharing out the state.
-sharing :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object (StateT s m |> e |> Nil) m
-sharing m = go where
-  go s = Object $ \k -> liftM (fmap go) $ ($k)
-    $ (\n -> runStateT n s)
-    ||> (\e -> runStateT (m e) s)
-    ||> exhaust
-{-# INLINE sharing #-}
-
 -- | A mutable variable.
 variable :: Applicative f => s -> Object (State s) f
 variable s = Object $ \m -> let (a, s') = runState m s in pure (a, variable s')
 
+-- | Build a stateful object, sharing out the state.
+sharing :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object (State s |> e |> Nil) m
+sharing m = go where
+  go s = Object $ \k -> liftM (fmap go) $ ($k)
+    $ (\n -> return $ runState n s)
+    ||> (\e -> runStateT (m e) s)
+    ||> exhaust
+{-# INLINE sharing #-}
+
+-- | An object that won't accept any messages.
+loner :: Functor m => Object Nil m
+loner = liftO exhaust
+
+-- | Extend an object by adding another independent object.
+(.|>.) :: Functor m => Object f m -> Object (Union s) m -> Object (f |> Union s) m
+p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
+
 -- | aka indexed store comonad
 data Request a b r = Request a (b -> r) deriving Functor
 
-class Requestable a b f | f -> a, f -> b where
-  request :: a -> f b
+class Lift f g | g -> f where
+  lift_ :: f a -> g a
 
-instance Requestable a b (Request a b) where
-  request a = Request a id
+instance Lift (Request a b) (Request a b) where
+  lift_ = id
 
-instance (Requestable a b f, f ∈ u) => Requestable a b (Union u) where
-  request = liftU . request
+instance (f ∈ u) => Lift f (Union u) where
+  lift_ = liftU
 
-class Stateful s f | f -> s where
-  get_ :: f s
-  modify_ :: (s -> s) -> f ()
+instance Lift (StateT s m) (StateT s m) where
+  lift_ = id
 
-put_ :: Stateful s f => s -> f ()
-put_ s = modify_ (const s)
+get_ :: (Monad m, Lift (StateT s m) f) => f s
+get_ = lift_ get
 
-instance Monad m => Stateful s (StateT s m) where
-  get_ = get
-  modify_ = modify
+modify_ :: (Monad m, Lift (StateT s m) f) => (s -> s) -> f ()
+modify_ f = lift_ (modify f)
 
-instance (Stateful s f, f ∈ u) => Stateful s (Union u) where
-  get_ = liftU get_
-  modify_ = liftU . modify_
+put_ :: (Monad m, Lift (StateT s m) f) => s -> f ()
+put_ s = lift_ (put s)
+
+request :: (Functor f, Lift (Request a b) f) => a -> f b
+request a = lift_ (Request a id)
