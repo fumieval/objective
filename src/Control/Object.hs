@@ -83,9 +83,7 @@ loner = liftO exhaust
 (.|>.) :: Functor m => Object f m -> Object (Union s) m -> Object (f |> Union s) m
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
--- | aka indexed store comonad
-data Request a b r where
-  Request :: a -> Request a b b
+data Request a b r = Request a (b -> r)
 
 class Lift f g | g -> f where
   lift_ :: f a -> g a
@@ -109,4 +107,10 @@ put_ :: (Monad m, Lift (StateT s m) f) => s -> f ()
 put_ s = lift_ (put s)
 
 request :: (Lift (Request a b) f) => a -> f b
-request = lift_ . Request
+request a = lift_ (Request a id)
+
+accept :: Functor f => (a -> f b) -> Request a b r -> f r
+accept f (Request a br) = fmap br (f a)
+
+acceptM :: Monad m => (a -> m b) -> Request a b r -> m r
+acceptM f (Request a br) = liftM br (f a)
