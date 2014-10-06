@@ -60,6 +60,9 @@ c .|- Free f = c .- f >>= (c .|-)
 (.^>) :: (MonadObjective m, f ∈ u) => Address (Union u) m -> f a -> m a
 c .^> f = c .- liftU f
 
+(.<<) :: (MonadObjective m, Lift (Request a b) f) => Address f m -> a -> m b 
+c .<< a = c .- request a
+
 instance MonadObjective m => MonadObjective (ReaderT r m) where
   data Address e (ReaderT r m) = WrapReaderT (Address e m)
   type Residence (ReaderT r m) = Residence m

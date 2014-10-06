@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
-{-# LANGUAGE TypeOperators, TupleSections #-}
+{-# LANGUAGE TypeOperators, TupleSections, GADTs #-}
 module Control.Object where
 
 import Control.Comonad.Zero
@@ -84,7 +84,8 @@ loner = liftO exhaust
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
 -- | aka indexed store comonad
-data Request a b r = Request a (b -> r) deriving Functor
+data Request a b r where
+  Request :: a -> Request a b b
 
 class Lift f g | g -> f where
   lift_ :: f a -> g a
@@ -107,5 +108,5 @@ modify_ f = lift_ (modify f)
 put_ :: (Monad m, Lift (StateT s m) f) => s -> f ()
 put_ s = lift_ (put s)
 
-request :: (Functor f, Lift (Request a b) f) => a -> f b
-request a = lift_ (Request a id)
+request :: (Lift (Request a b) f) => a -> f b
+request = lift_ . Request
