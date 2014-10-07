@@ -2,17 +2,40 @@
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
 {-# LANGUAGE TypeOperators, TupleSections, GADTs #-}
-module Control.Object where
+module Control.Object (
+  -- * Construction
+  Object(..),
+  liftO,
+  echo,
+  oneshot,
+  stateful,
+  variable,
+  -- * Composition
+  (.>>.),
+  transObject,
+  adaptObject,
+  sequential,
+  -- * Extensible objects
+  loner,
+  (.|>.),
+  sharing,
+  -- * Utilitites
+  Request(..),
+  request,
+  accept,
+  acceptM,
+  Lift(..),
+  get_,
+  modify_,
+  put_,
+  )
+where
 
-import Control.Comonad.Zero
-import Control.Comonad
 import Control.Monad.Trans.State.Strict
 import Control.Monad
 import Data.Typeable
 import Control.Applicative
-import Data.Maybe
 import Control.Monad.Free
-import Control.Monad.Trans.Maybe
 import Data.OpenUnion1.Clean
 
 -- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
@@ -42,7 +65,7 @@ Object m .>>. Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' .>>. n'))
 
 infixr 4 .>>.
 
--- | Build an object.
+-- | Build an object using continuation passing style.
 oneshot :: (Functor e, Monad m) => (forall a. e (m a) -> m a) -> Object e m
 oneshot m = go where
   go = Object $ \e -> m (fmap return e) >>= \a -> return (a, go)
@@ -51,7 +74,7 @@ oneshot m = go where
 -- | Build a stateful object.
 stateful :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object e m
 stateful h = go where
-  go s = Object $ liftM (\(a, s) -> (a, go s)) . flip runStateT s . h
+  go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
 
 -- | Convert a /method sequence/ into a sequential /method execution/.

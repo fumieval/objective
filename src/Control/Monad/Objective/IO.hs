@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, TypeFamilies, FlexibleInstances  #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeFamilies, FlexibleInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Monad.Objective.IO
@@ -13,7 +14,6 @@
 --
 -----------------------------------------------------------------------------
 module Control.Monad.Objective.IO  where
-import GHC.Base
 import Control.Monad.Objective.Class
 import Control.Concurrent
 import Control.Object
