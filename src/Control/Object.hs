@@ -106,7 +106,7 @@ loner = liftO exhaust
 (.|>.) :: Functor m => Object f m -> Object (Union s) m -> Object (f |> Union s) m
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
-data Request a b r = Request a (b -> r)
+data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
 
 class Lift f g | g -> f where
   lift_ :: f a -> g a
