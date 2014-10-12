@@ -34,6 +34,7 @@ infix 3 .-
 infix 3 .&
 infix 3 .|-
 infix 3 .^>
+infixl 2 !.-
 
 class Monad m => MonadObjective m where
 
@@ -44,6 +45,9 @@ class Monad m => MonadObjective m where
   (.-) :: Address e m -> e a -> m a
   -- | Add an object to the environment.
   new :: Object e (Residence m) -> m (Address e m)
+
+(!.-) :: MonadObjective m => m (Address e m) -> e a -> m a
+c !.- e = c >>= (.-e)
 
 (.&) :: (MonadObjective m, Lift (Strict.State s) f) => Address f m -> Strict.StateT s m a -> m a
 c .& m = do
