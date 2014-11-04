@@ -17,7 +17,11 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Control.Object, Control.Monad.Objective.Class, Control.Monad.Objective.IO, Control.Monad.Objective
+  exposed-modules:     Control.Object
+                     , Control.Monad.Objective
+                     , Control.Monad.Objective.Class
+                     , Control.Monad.Objective.IO
+                     , Control.Monad.Objective.ST
   -- other-modules:       
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
   build-depends:       base >=4.5 && <5, transformers >= 0.3 && <0.5, free >= 4.0 && <5, clean-unions < 0.2, profunctors > 4.0 && <5
