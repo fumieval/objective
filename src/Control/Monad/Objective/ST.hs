@@ -22,12 +22,11 @@ import Control.Object
 import Data.STRef
 
 instance MonadObjective (ST s) where
-    type Residence (ST s) = ST s
-    data Address e (ST s) = Address (STRef s (Object e (ST s)))
+  data Address e m (ST s) = Address (STRef s (Object e m))
 
-    Address ref .- e = do
-        o <- readSTRef ref
+  Address ref `invoke` e = do
+      o <- readSTRef ref
+      return $ do
         (a, o') <- runObject o e
-        writeSTRef ref o'
-        return a
-    new o = Address `fmap` newSTRef o
+        return $ writeSTRef ref o' >> return a
+  new o = Address `fmap` newSTRef o

@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                objective
-version:             0.4
+version:             0.4.1
 synopsis:            Extensible objects
 description:         Stateful effect transducer
 homepage:            https://github.com/fumieval/objective
