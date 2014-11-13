@@ -7,27 +7,7 @@
 
 module Control.Monad.Objective.Class where
 import Control.Object
-{-
-#if MIN_VERSION_transformers(0,4,0)
-import Control.Monad.Trans.Except
-#else
-import Control.Monad.Trans.Error
-#endif
-import Control.Monad.Trans.Identity
-import Control.Monad.Trans.List
-import Control.Monad.Trans.Maybe
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Cont
-import Control.Monad.Trans.Reader
-import Control.Monad.Trans.State.Lazy as Lazy
-import Control.Monad.Trans.Writer.Lazy as Lazy
-import Control.Monad.Trans.Writer.Strict as Strict
-import qualified Control.Monad.Trans.RWS.Lazy as LazyRWS
-import qualified Control.Monad.Trans.RWS.Strict as StrictRWS
-import Data.Monoid
-import Data.OpenUnion1.Clean
-import Control.Monad.Free
--}
+
 import Control.Monad
 import Control.Monad.Trans.State.Strict as Strict
 infix 3 .-
@@ -55,3 +35,11 @@ c .& m = do
   (a, s') <- Strict.runStateT m s
   c .- put_ s'
   return a
+
+pipeline :: (MonadObjective m, Lift (Strict.State s) f) => Address' f m -> Object e (Strict.StateT s m) -> Object e m
+pipeline addr = go where
+  go o = Object $ \e -> do
+    s <- addr .- get_
+    ((a, o'), s') <- runStateT (runObject o e) s
+    addr .& put_ s'
+    return (a, pipeline addr o')
