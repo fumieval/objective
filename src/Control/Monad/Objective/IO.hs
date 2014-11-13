@@ -20,11 +20,11 @@ import Control.Object
 
 instance MonadObjective IO where
 
-  data Address e m IO = Address (MVar (Object e m))
+  data Instance e m IO = Instance (MVar (Object e m))
 
-  Address m `invoke` e = do
+  Instance m `invoke` e = do
     c <- takeMVar m
     return $ do
       (a, c') <- runObject c e
       return (putMVar m c' >> return a)
-  new v = Address `fmap` newMVar v
+  new v = Instance `fmap` newMVar v
