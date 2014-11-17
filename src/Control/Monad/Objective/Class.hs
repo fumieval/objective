@@ -3,16 +3,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 
 module Control.Monad.Objective.Class where
 import Control.Object
 
 import Control.Monad
+import Control.Elevator
 import Control.Monad.Trans.State.Strict as Strict
-infix 3 .-
-infix 3 .^
-infix 3 .&
 
 type Instance' e m = Instance e m m
 
@@ -23,23 +22,19 @@ class Monad m => MonadObjective m where
   -- | Add an object to the environment.
   new :: Object e n -> m (Instance e n m)
 
-(.-) :: MonadObjective m => Instance' e m -> e a -> m a
-a .- e = join $ join $ invoke a e
+(.-) :: (Monad n
+  , Elevate n m
+  , MonadObjective m
+  , Elevate m f) => Instance e n m -> e a -> f a
+a .- e = elevate $ invoke a e >>= join . elevate
 
-(.^) :: (MonadObjective m, Lift e f) => Instance' f m -> e a -> m a
-a .^ e = a .- lift_ e
+infix 3 .-
 
-(.&) :: (MonadObjective m, Lift (Strict.State s) f) => Instance' f m -> Strict.StateT s m a -> m a
-c .& m = do
-  s <- c .- get_
-  (a, s') <- Strict.runStateT m s
-  c .- put_ s'
-  return a
+(.^) :: (Elevate e f
+  , Monad n
+  , Elevate n m
+  , MonadObjective m
+  , Elevate m g) => Instance f n m -> e a -> g a
+a .^ e = a .- elevate e
 
-pipeline :: (MonadObjective m, Lift (Strict.State s) f) => Instance' f m -> Object e (Strict.StateT s m) -> Object e m
-pipeline addr = go where
-  go o = Object $ \e -> do
-    s <- addr .- get_
-    ((a, o'), s') <- runStateT (runObject o e) s
-    addr .& put_ s'
-    return (a, pipeline addr o')
+infix 3 .^

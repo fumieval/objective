@@ -18,16 +18,7 @@ module Control.Object (
   -- * Extensible objects
   loner,
   (.|>.),
-  sharing,
-  -- * Utilitites
-  Request(..),
-  request,
-  accept,
-  acceptM,
-  Lift(..),
-  get_,
-  modify_,
-  put_,
+  sharing
   )
 where
 
@@ -106,34 +97,4 @@ loner = liftO exhaust
 (.|>.) :: Functor m => Object f m -> Object (Union s) m -> Object (f |> Union s) m
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
-data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
-
-class Lift f g | g -> f where
-  lift_ :: f a -> g a
-
-instance Lift (Request a b) (Request a b) where
-  lift_ = id
-
-instance (f ∈ u) => Lift f (Union u) where
-  lift_ = liftU
-
-instance Lift (StateT s m) (StateT s m) where
-  lift_ = id
-
-get_ :: (Monad m, Lift (StateT s m) f) => f s
-get_ = lift_ get
-
-modify_ :: (Monad m, Lift (StateT s m) f) => (s -> s) -> f ()
-modify_ f = lift_ (modify f)
-
-put_ :: (Monad m, Lift (StateT s m) f) => s -> f ()
-put_ s = lift_ (put s)
-
-request :: (Lift (Request a b) f) => a -> f b
-request a = lift_ (Request a id)
-
-accept :: Functor f => (a -> f b) -> Request a b r -> f r
-accept f (Request a br) = fmap br (f a)
-
-acceptM :: Monad m => (a -> m b) -> Request a b r -> m r
-acceptM f (Request a br) = liftM br (f a)
+infixr 3 .|>.
