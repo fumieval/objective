@@ -11,7 +11,6 @@ import Control.Object
 
 import Control.Monad
 import Control.Elevator
-import Control.Monad.Trans.State.Strict as Strict
 
 type Instance' e m = Instance e m m
 

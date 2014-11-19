@@ -6,6 +6,8 @@ import Control.Monad
 
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
 
+instance Tower (Request a b)
+
 request :: (Elevate (Request a b) f) => a -> f b
 request a = elevate (Request a id)
 
