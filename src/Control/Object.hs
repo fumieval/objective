@@ -2,6 +2,19 @@
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
 {-# LANGUAGE TypeOperators, TupleSections, GADTs #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Object
+-- Copyright   :  (c) Fumiaki Kinoshita 2014
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+-- Stateful effect transducer: The Mealy machine for effects.
+--
+-----------------------------------------------------------------------------
 module Control.Object (
   -- * Construction
   Object(..),

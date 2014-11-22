@@ -1,9 +1,21 @@
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Data.Functor.Request
+-- Copyright   :  (c) Fumiaki Kinoshita 2014
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+-----------------------------------------------------------------------------
 module Data.Functor.Request where
 import Data.Typeable
 import Control.Elevator
 import Control.Monad
 
+-- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
 
 instance Tower (Request a b)

@@ -5,7 +5,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
-
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Monad.Objective.IO
+-- Copyright   :  (c) Fumiaki Kinoshita 2014
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+-- 'MonadObjective' class and operations
+--
+-----------------------------------------------------------------------------
 module Control.Monad.Objective.Class where
 import Control.Object
 
