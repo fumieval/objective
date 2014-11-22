@@ -98,3 +98,4 @@ loner = liftO exhaust
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
 infixr 3 .|>.
+
