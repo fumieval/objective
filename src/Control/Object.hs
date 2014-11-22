@@ -1,7 +1,7 @@
-{-# LANGUAGE Rank2Types, MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable #-}
-{-# LANGUAGE FunctionalDependencies, UndecidableInstances #-}
-{-# LANGUAGE TypeOperators, TupleSections, GADTs #-}
+{-# LANGUAGE Rank2Types, FlexibleInstances, FlexibleContexts, TypeOperators, CPP #-}
+#if __GLASGOW_HASKELL__ >= 707
+{-# LANGUAGE DeriveDataTypeable #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object
@@ -27,7 +27,6 @@ module Control.Object (
   (.>>.),
   transObject,
   adaptObject,
-  sequential,
   -- * Extensible objects
   loner,
   (.|>.),
@@ -39,13 +38,30 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad
 import Data.Typeable
 import Control.Applicative
-import Control.Monad.Free
 import Data.OpenUnion1.Clean
 
 -- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
 -- It can be thought of as an automaton that converts effects.
 -- 'Object's can be composed just like functions using '.>>.'; the identity element is 'echo'.
-newtype Object e m = Object { runObject :: forall x. e x -> m (x, Object e m) } deriving Typeable
+newtype Object e m = Object { runObject :: forall x. e x -> m (x, Object e m) }
+#if __GLASGOW_HASKELL__ >= 707
+  deriving (Typeable)
+#else
+instance (Typeable1 f, Typeable1 m) => Typeable (Object f m) where
+  typeOf t = mkTyConApp objectTyCon [typeOf1 (f t), typeOf1 (g t)] where
+    f :: Object f m -> f a
+    f = undefined
+    g :: Object f m -> m a
+    g = undefined
+
+objectTyCon :: TyCon
+#if __GLASGOW_HASKELL__ < 704
+objectTyCon = mkTyCon "Control.Object.Object"
+#else
+objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
+#endif
+{-# NOINLINE objectTyCon #-}
+#endif
 
 -- | Lift a natural transformation into an object.
 liftO :: Functor f => (forall x. e x -> f x) -> Object e f
@@ -80,14 +96,6 @@ stateful :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object e m
 stateful h = go where
   go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
-
--- | Convert a /method sequence/ into a sequential /method execution/.
-sequential :: Monad m => Object e m -> Object (Free e) m
-sequential obj = Object $ \x -> case x of
-  Pure a -> return (a, sequential obj)
-  Free f -> do
-    (a, obj') <- runObject obj f
-    runObject (sequential obj') a
 
 -- | A mutable variable.
 variable :: Applicative f => s -> Object (State s) f

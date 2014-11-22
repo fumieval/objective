@@ -1,6 +1,7 @@
 0.5.1
 -----
 * Added PushPull functor
+* Removed `sequential`
 
 0.5
 -----
