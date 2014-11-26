@@ -27,10 +27,12 @@ module Control.Object (
   (.>>.),
   transObject,
   adaptObject,
-  -- * Extensible objects
+  -- * Multifunctional objects
   loner,
   (.|>.),
-  sharing
+  sharing,
+  -- * Patterns
+  flyweight
   )
 where
 
@@ -39,6 +41,8 @@ import Control.Monad
 import Data.Typeable
 import Control.Applicative
 import Data.OpenUnion1.Clean
+import qualified Data.Map as Map
+import Data.Functor.Request
 
 -- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
 -- It can be thought of as an automaton that converts effects.
@@ -119,4 +123,11 @@ loner = liftO exhaust
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
 infixr 3 .|>.
+
+-- | The flyweight pattern.
+flyweight :: Monad m => Ord k => (k -> m a) -> Object (Request k a) m
+flyweight f = go Map.empty where
+  go m = Object $ \(Request k cont) -> case Map.lookup k m of
+    Just a -> return (cont a, go m)
+    Nothing -> f k >>= \a -> return (cont a, go $ Map.insert k a m)
 
