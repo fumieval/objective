@@ -27,6 +27,8 @@ module Control.Object (
   (.>>.),
   transObject,
   adaptObject,
+  sequential,
+  runSequential,
   -- * Multifunctional objects
   loner,
   (.|>.),
@@ -43,6 +45,7 @@ import Control.Applicative
 import Data.OpenUnion1.Clean
 import qualified Data.Map as Map
 import Data.Functor.Request
+import Control.Monad.Free
 
 -- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
 -- It can be thought of as an automaton that converts effects.
@@ -131,3 +134,9 @@ flyweight f = go Map.empty where
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ Map.insert k a m)
 
+runSequential :: Monad m => Object e m -> Free e a -> m (a, Object e m)
+runSequential obj (Pure a) = return (a, obj)
+runSequential obj (Free f) = runObject obj f >>= \(m, obj') -> runSequential obj' m
+
+sequential :: Monad m => Object e m -> Object (Free e) m
+sequential obj = Object $ liftM (fmap sequential) . runSequential obj

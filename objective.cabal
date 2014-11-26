@@ -26,7 +26,7 @@ library
                      , Data.Functor.PushPull
   -- other-modules:       
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
-  build-depends:       base >=4.5 && <5, transformers >= 0.3 && <0.5, clean-unions < 0.2, elevator, containers
+  build-depends:       base >=4.5 && <5, transformers >= 0.3 && <0.5, clean-unions < 0.2, elevator, containers, free >= 4.4
   ghc-options: -Wall
   hs-source-dirs:      src
   default-language:    Haskell2010
