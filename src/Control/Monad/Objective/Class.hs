@@ -33,6 +33,7 @@ class Monad m => MonadObjective m where
   -- | Add an object to the environment.
   new :: Object e n -> m (Instance e n m)
 
+-- | Invoke a method.
 (.-) :: (Monad n
   , Elevate n m
   , MonadObjective m
@@ -41,6 +42,7 @@ a .- e = elevate $ invoke a e >>= join . elevate
 
 infix 3 .-
 
+-- | Similar to '(.-)', but also lifts the method according to the instance.
 (.^) :: (Elevate e f
   , Monad n
   , Elevate n m
