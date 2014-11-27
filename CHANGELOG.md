@@ -1,3 +1,8 @@
+0.5.2
+-----
+* Added Process
+* Added `runSequential`, `sequential` for operational monad
+
 0.5.1
 -----
 * Added PushPull functor

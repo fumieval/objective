@@ -13,7 +13,9 @@ maintainer:          Fumiaki Kinoshita <fumiexcel@gmail.com>
 -- copyright:           
 category:            Control
 build-type:          Simple
--- extra-source-files:  
+extra-source-files:
+  CHANGELOG.md
+  .travis.yml
 cabal-version:       >=1.10
 
 library
