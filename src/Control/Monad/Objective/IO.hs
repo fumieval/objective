@@ -18,13 +18,13 @@ import Control.Monad.Objective.Class
 import Control.Concurrent
 import Control.Object
 
-instance MonadObjective IO where
+instance ObjectiveBase IO where
+  data Inst IO f g = InstIO (MVar (Object f g))
 
-  data Instance e m IO = InstanceIO (MVar (Object e m))
+  invoke mr gr (InstIO m) e = do
+    c <- mr (takeMVar m)
+    (a, c') <- gr (runObject c e)
+    mr (putMVar m c')
+    return a
 
-  InstanceIO m `invoke` e = do
-    c <- takeMVar m
-    return $ do
-      (a, c') <- runObject c e
-      return (putMVar m c' >> return a)
-  new v = InstanceIO `fmap` newMVar v
+  newBase v = InstIO `fmap` newMVar v

@@ -21,12 +21,12 @@ import Control.Monad.ST
 import Control.Object
 import Data.STRef
 
-instance MonadObjective (ST s) where
-  data Instance e m (ST s) = InstanceST (STRef s (Object e m))
+instance ObjectiveBase (ST s) where
+  data Inst (ST s) f g = InstST (STRef s (Object f g))
 
-  InstanceST ref `invoke` e = do
-      o <- readSTRef ref
-      return $ do
-        (a, o') <- runObject o e
-        return $ writeSTRef ref o' >> return a
-  new o = InstanceST `fmap` newSTRef o
+  invoke mr gr (InstST ref) e = do
+    o <- mr (readSTRef ref)
+    (a, o') <- gr (runObject o e)
+    mr (writeSTRef ref o')
+    return a
+  newBase o = InstST `fmap` newSTRef o

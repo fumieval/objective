@@ -1,5 +1,5 @@
 name:                objective
-version:             0.5.2.1
+version:             0.6
 synopsis:            Extensible objects
 description:         Stateful effect transducer
 homepage:            https://github.com/fumieval/objective

@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE CPP #-}
 -----------------------------------------------------------------------------
 -- |
@@ -21,43 +23,39 @@
 module Control.Monad.Objective.Class where
 import Control.Object
 
-import Control.Monad
 import Control.Elevator
 import Control.Monad.Trans.State.Strict
 
-type Instance' e m = Instance e m m
+type Inst' f g = Inst g f g
+type Instance' f g = Inst g f g
+type Instance f g m = Inst m f g
 
-class (Tower m, Monad m) => MonadObjective m where
-  data Instance (e :: * -> *) (n :: * -> *) m
-  -- | Send a message to the pointed one.
-  invoke :: Monad n => Instance e n m -> e a -> m (n (m a))
-  -- | Add an object to the environment.
-  new :: Object e n -> m (Instance e n m)
+class ObjectiveBase b where
+  data Inst b (f :: * -> *) (g :: * -> *)
+  newBase :: Object f g -> b (Inst b f g)
+  invoke :: Monad r => (forall x. b x -> r x) -> (forall x. g x -> r x) -> Inst b f g -> f a -> r a
 
--- | Invoke a method.
-(.-) :: (Monad n
-  , Elevate n m
-  , MonadObjective m
-  , Elevate m f) => Instance e n m -> e a -> f a
-a .- e = elevate $ invoke a e >>= join . elevate
+new :: (ObjectiveBase b, Elevate b m) => Object f g -> m (Inst b f g)
+new = elevate . newBase
+
+(.-) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> f a -> m a
+(.-) = invoke elevate elevate
 {-# INLINE (.-) #-}
 
 infix 3 .-
 
--- | Similar to '(.-)', but also lifts the method according to the instance.
-(.^) :: (Elevate e f
-  , Monad n
-  , Elevate n m
-  , MonadObjective m
-  , Elevate m g) => Instance f n m -> e a -> g a
-a .^ e = a .- elevate e
+-- | Invoke a method.
+(.^) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m, Elevate e f) => Inst b f g -> e a -> m a
+i .^ e = i .- elevate e
 {-# INLINE (.^) #-}
-
 infix 3 .^
 
 -- | Specialized (.^) for StateT
-(.&) :: (MonadObjective m, Elevate (StateT s m) e, Monad n, Elevate n m, Elevate m f) => Instance e n m -> StateT s m a -> f a
-(.&) = (.^)
-{-# INLINE (.&) #-}
-infix 3 .&
+(.&) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m, Elevate (State s) f) => Inst b f g -> StateT s m a -> m a
+i .& m = do
+  s <- i .^ get
+  (a, s') <- runStateT m s
+  i .^ put s'
+  return a
 
+infix 3 .&
