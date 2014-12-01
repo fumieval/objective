@@ -45,7 +45,7 @@ import Control.Monad
 import Data.Typeable
 import Control.Applicative
 import Data.OpenUnion1.Clean
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Functor.Request
 import Control.Monad.Operational.Mini
 import Control.Arrow
