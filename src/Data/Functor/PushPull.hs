@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, DataKinds, TypeFamilies #-}
+{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, DataKinds, TypeFamilies, TypeOperators #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Functor.PushPull
@@ -19,8 +19,8 @@ import Data.OpenUnion1.Clean
 data PushPull a b r = Push a r | Pull (b -> r) deriving (Functor, Typeable)
 
 instance Tower (PushPull a b) where
-  type Floors (PushPull a b) = Empty
-  toLoft = exhaust
+  type Floors (PushPull a b) = (,) a :> (->) b :> Empty
+  toLoft = uncurry Push ||> Pull ||> exhaust
 
 push :: (Elevate (PushPull a b) f) => a -> f ()
 push a = elevate (Push a ())

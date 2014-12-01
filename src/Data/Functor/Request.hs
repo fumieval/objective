@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts #-}
+{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, TypeOperators, DataKinds, TypeFamilies #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Functor.Request
@@ -16,6 +16,8 @@ import Control.Elevator
 import Control.Monad
 import Data.Monoid
 import Control.Applicative
+import Data.OpenUnion1.Clean
+import Data.Functor.Identity
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
@@ -24,7 +26,9 @@ instance Monoid a => Applicative (Request a b) where
   pure a = Request mempty (const a)
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
 
-instance Tower (Request a b)
+instance Monoid a => Tower (Request a b) where
+  type Floors (Request a b) = (,) a :> (->) b :> Identity :> Empty
+  toLoft = (\(a, b) -> Request a (const b)) ||> Request mempty ||> pure . runIdentity ||> exhaust
 
 request :: (Elevate (Request a b) f) => a -> f b
 request a = elevate (Request a id)
