@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies, ConstraintKinds, FlexibleContexts #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -----------------------------------------------------------------------------
@@ -20,6 +20,7 @@ import Control.Monad.Objective.Class
 import Control.Monad.ST
 import Control.Object
 import Data.STRef
+import Control.Elevator
 
 instance ObjectiveBase (ST s) where
   data Inst (ST s) f g = InstST (STRef s (Object f g))
@@ -29,4 +30,7 @@ instance ObjectiveBase (ST s) where
     (a, o') <- gr (runObject o e)
     mr (writeSTRef ref o')
     return a
-  newBase o = InstST `fmap` newSTRef o
+  new o = InstST `fmap` newSTRef o
+
+newST :: Elevate (ST s) m => Object f g -> m (Inst (ST s) f g)
+newST = elevate . new

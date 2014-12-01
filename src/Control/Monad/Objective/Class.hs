@@ -32,11 +32,8 @@ type Instance f g m = Inst m f g
 
 class ObjectiveBase b where
   data Inst b (f :: * -> *) (g :: * -> *)
-  newBase :: Object f g -> b (Inst b f g)
+  new :: Object f g -> b (Inst b f g)
   invoke :: Monad r => (forall x. b x -> r x) -> (forall x. g x -> r x) -> Inst b f g -> f a -> r a
-
-new :: (ObjectiveBase b, Elevate b m) => Object f g -> m (Inst b f g)
-new = elevate . newBase
 
 (.-) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> f a -> m a
 (.-) = invoke elevate elevate

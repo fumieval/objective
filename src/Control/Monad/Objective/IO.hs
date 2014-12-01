@@ -17,6 +17,7 @@ module Control.Monad.Objective.IO  where
 import Control.Monad.Objective.Class
 import Control.Concurrent
 import Control.Object
+import Control.Monad.IO.Class
 
 instance ObjectiveBase IO where
   data Inst IO f g = InstIO (MVar (Object f g))
@@ -27,4 +28,7 @@ instance ObjectiveBase IO where
     mr (putMVar m c')
     return a
 
-  newBase v = InstIO `fmap` newMVar v
+  new v = InstIO `fmap` newMVar v
+
+newIO :: MonadIO m => Object f g -> m (Inst IO f g)
+newIO = liftIO . new
