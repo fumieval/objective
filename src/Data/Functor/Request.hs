@@ -26,9 +26,9 @@ instance Monoid a => Applicative (Request a b) where
   pure a = Request mempty (const a)
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
 
-instance Monoid a => Tower (Request a b) where
-  type Floors (Request a b) = (,) a :> (->) b :> Identity :> Empty
-  toLoft = (\(a, b) -> Request a (const b)) ||> Request mempty ||> pure . runIdentity ||> exhaust
+instance Tower (Request a b) where
+  type Floors (Request a b) = Empty
+  toLoft = exhaust
 
 request :: (Elevate (Request a b) f) => a -> f b
 request a = elevate (Request a id)
