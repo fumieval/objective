@@ -14,9 +14,15 @@ module Data.Functor.Request where
 import Data.Typeable
 import Control.Elevator
 import Control.Monad
+import Data.Monoid
+import Control.Applicative
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
+
+instance Monoid a => Applicative (Request a b) where
+  pure a = Request mempty (const a)
+  Request a c <*> Request b d = Request (mappend a b) (c <*> d)
 
 instance Tower (Request a b)
 
