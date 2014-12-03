@@ -60,7 +60,7 @@ newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
 #if __GLASGOW_HASKELL__ >= 707
   deriving (Typeable)
 #else
-instance (Typeable1 f, Typeable1 m) => Typeable (Object f g) where
+instance (Typeable1 f, Typeable1 g) => Typeable (Object f g) where
   typeOf t = mkTyConApp objectTyCon [typeOf1 (f t), typeOf1 (g t)] where
     f :: Object f g -> f a
     f = undefined
