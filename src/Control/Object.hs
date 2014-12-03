@@ -53,18 +53,18 @@ import qualified Control.Category as C
 import Data.Profunctor
 import Data.Monoid
 
--- | The type 'Object e m' represents objects which can handle messages @e@, perform actions in the environment @m@.
+-- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
 -- 'Object's can be composed just like functions using '.>>.'; the identity element is 'echo'.
-newtype Object e m = Object { runObject :: forall x. e x -> m (x, Object e m) }
+newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
 #if __GLASGOW_HASKELL__ >= 707
   deriving (Typeable)
 #else
-instance (Typeable1 f, Typeable1 m) => Typeable (Object f m) where
+instance (Typeable1 f, Typeable1 m) => Typeable (Object f g) where
   typeOf t = mkTyConApp objectTyCon [typeOf1 (f t), typeOf1 (g t)] where
-    f :: Object f m -> f a
+    f :: Object f g -> f a
     f = undefined
-    g :: Object f m -> m a
+    g :: Object f g -> g a
     g = undefined
 
 objectTyCon :: TyCon
@@ -77,7 +77,7 @@ objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
 #endif
 
 -- | Lift a natural transformation into an object.
-liftO :: Functor f => (forall x. e x -> f x) -> Object e f
+liftO :: Functor g => (forall x. f x -> g x) -> Object f g
 liftO f = Object $ fmap (\x -> (x, liftO f)) . f
 
 -- | Change the workspace of the object.
@@ -85,7 +85,7 @@ transObject :: Functor g => (forall x. f x -> g x) -> Object e f -> Object e g
 transObject f (Object m) = Object $ fmap (fmap (transObject f)) . f . m
 
 -- | Apply a function to the messages coming into the object.
-adaptObject :: Functor m => (forall x. e x -> f x) -> Object f m -> Object e m
+adaptObject :: Functor m => (forall x. g x -> f x) -> Object f m -> Object g m
 adaptObject f (Object m) = Object $ fmap (fmap (adaptObject f)) . m . f
 
 -- | Parrots messages given.
@@ -93,19 +93,18 @@ echo :: Functor e => Object e e
 echo = Object (fmap (\x -> (x, echo)))
 
 -- | Compose two objects (aka Dependency Injection).
-(.>>.) :: Functor n => Object e m -> Object m n -> Object e n
-Object m .>>. Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' .>>. n')) $ n (m e)
-
+(.>>.) :: Functor h => Object f g -> Object g h -> Object f h
+(.>>.) = (>>>>)
 infixr 4 .>>.
 
 -- | Build an object using continuation passing style.
-oneshot :: (Functor e, Monad m) => (forall a. e (m a) -> m a) -> Object e m
+oneshot :: (Functor f, Monad m) => (forall a. f (m a) -> m a) -> Object f m
 oneshot m = go where
   go = Object $ \e -> m (fmap return e) >>= \a -> return (a, go)
 {-# INLINE oneshot #-}
 
 -- | Build a stateful object.
-stateful :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object e m
+stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
 stateful h = go where
   go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
@@ -115,7 +114,7 @@ variable :: Applicative f => s -> Object (State s) f
 variable s = Object $ \m -> let (a, s') = runState m s in pure (a, variable s')
 
 -- | Build a stateful object, sharing out the state.
-sharing :: Monad m => (forall a. e a -> StateT s m a) -> s -> Object (State s |> e |> Nil) m
+sharing :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object (State s |> f |> Nil) m
 sharing m = go where
   go s = Object $ \k -> liftM (fmap go) $ ($k)
     $ (\n -> return $ runState n s)
@@ -124,11 +123,11 @@ sharing m = go where
 {-# INLINE sharing #-}
 
 -- | An object that won't accept any messages.
-loner :: Functor m => Object Nil m
+loner :: Functor f => Object Nil f
 loner = liftO exhaust
 
 -- | Extend an object by adding another independent object.
-(.|>.) :: Functor m => Object f m -> Object (Union s) m -> Object (f |> Union s) m
+(.|>.) :: Functor g => Object f g -> Object (Union s) g -> Object (f |> Union s) g
 p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
 
 infixr 3 .|>.
