@@ -94,7 +94,7 @@ echo = Object (fmap (\x -> (x, echo)))
 
 -- | Compose two objects (aka Dependency Injection).
 (.>>.) :: Functor h => Object f g -> Object g h -> Object f h
-(.>>.) = (>>>>)
+Object m .>>. Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' .>>. n')) $ n (m e)
 infixr 4 .>>.
 
 -- | Build an object using continuation passing style.

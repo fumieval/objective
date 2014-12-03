@@ -17,7 +17,6 @@ import Control.Monad
 import Data.Monoid
 import Control.Applicative
 import Data.OpenUnion1.Clean
-import Data.Functor.Identity
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
