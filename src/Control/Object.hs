@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types, FlexibleInstances, FlexibleContexts, TypeOperators, CPP #-}
+{-# LANGUAGE Rank2Types, FlexibleInstances, FlexibleContexts, TypeOperators, CPP, ConstraintKinds #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 #endif
@@ -29,29 +29,37 @@ module Control.Object (
   adaptObject,
   sequential,
   runSequential,
+  servant,
   -- * Multifunctional objects
   loner,
   (.|>.),
   sharing,
   -- * Patterns
   flyweight,
+  announce,
   Process(..),
   _Process
   )
 where
 
-import Control.Monad.Trans.State.Strict
-import Control.Monad
-import Data.Typeable
 import Control.Applicative
-import Data.OpenUnion1.Clean
-import qualified Data.Map.Strict as Map
-import Data.Functor.Request
-import Control.Monad.Operational.Mini
 import Control.Arrow
-import qualified Control.Category as C
-import Data.Profunctor
+import Control.Monad
+import Control.Monad.Operational.Mini
+import Control.Monad.Trans.Maybe
+import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.Writer.Strict
+import Control.Monad.Trans.Class
+import Control.Elevator
+import Data.Functor.Request
 import Data.Monoid
+import Data.OpenUnion1.Clean
+import Data.Profunctor
+import Data.Typeable
+import Data.Witherable
+import qualified Control.Category as C
+import qualified Control.Monad.Trans.Operational.Mini as T
+import qualified Data.Map.Strict as Map
 
 -- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -146,6 +154,20 @@ runSequential obj (e :>>= cont) = runObject obj e >>= \(a, obj') -> runSequentia
 -- | Let object handle sequential methods.
 sequential :: Monad m => Object e m -> Object (ReifiedProgram e) m
 sequential obj = Object $ liftM (fmap sequential) . runSequential obj
+
+announce :: (Witherable t, Monad m, Elevate (State (t (Object f (MaybeT g)))) m, Elevate g m) => f a -> m [a]
+announce f = do
+  t <- elevate get
+  (t', Endo e) <- runWriterT $ witherM (\obj -> mapMaybeT (lift . elevate) (runObject obj f)
+      >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
+  elevate (put t')
+  return (e [])
+
+servant :: Monad m => Object f m -> Object g (T.ReifiedProgramT f m) -> Object g m
+servant slave master = Object $ go slave . runObject master where
+  go sl (T.Lift m cont) = m >>= go sl . cont
+  go sl (f T.:>>= cont) = runObject sl f >>= \(a, sl') -> go sl' (cont a)
+  go sl (T.Return (a, master')) = return (a, servant sl master')
 
 -- | An object which is specialized to be a Mealy machine
 newtype Process m a b = Process { unProcess :: Object (Request a b) m }
