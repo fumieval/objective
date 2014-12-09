@@ -37,6 +37,8 @@ module Control.Object (
   -- * Patterns
   flyweight,
   announce,
+  announceMaybe,
+  announceMaybeT,
   Process(..),
   _Process
   )
@@ -60,6 +62,7 @@ import Data.Witherable
 import qualified Control.Category as C
 import qualified Control.Monad.Trans.Operational.Mini as T
 import qualified Data.Map.Strict as Map
+import qualified Data.Traversable as T
 
 -- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -155,8 +158,23 @@ runSequential obj (e :>>= cont) = runObject obj e >>= \(a, obj') -> runSequentia
 sequential :: Monad m => Object e m -> Object (ReifiedProgram e) m
 sequential obj = Object $ liftM (fmap sequential) . runSequential obj
 
-announce :: (Witherable t, Monad m, Elevate (State (t (Object f (MaybeT g)))) m, Elevate g m) => f a -> m [a]
+announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
+  t <- elevate get
+  (t', Endo e) <- runWriterT $ T.mapM (\obj -> (lift . elevate) (runObject obj f)
+      >>= \(x, obj') -> writer (obj', Endo (x:))) t
+  elevate (put t')
+  return (e [])
+
+announceMaybe :: (Witherable t, Monad m, Elevate (State (t (Object f Maybe))) m) => f a -> m [a]
+announceMaybe f = elevate $ state
+  $ \t -> let (t', Endo e) = runWriter
+                $ witherM (\obj -> case runObject obj f of
+                  Just (x, obj') -> lift $ writer (obj', Endo (x:))
+                  Nothing -> mzero) t in (e [], t')
+
+announceMaybeT :: (Witherable t, Monad m, State (t (Object f (MaybeT g))) ∈ Floors1 m, g ∈ Floors1 m, Tower m) => f a -> m [a]
+announceMaybeT f = do
   t <- elevate get
   (t', Endo e) <- runWriterT $ witherM (\obj -> mapMaybeT (lift . elevate) (runObject obj f)
       >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
@@ -203,12 +221,18 @@ instance Monad m => Arrow (Process m) where
     go = Object $ \(Request a cont) -> return (cont (f a), go)
   first (Process f0) = Process $ go f0 where
     go f = Object $ \(Request (a, c) cont) -> liftM (\(b, f') -> (cont (b, c), go f')) $ runObject f (Request a id)
+  second (Process f0) = Process $ go f0 where
+    go f = Object $ \(Request (a, c) cont) -> liftM (\(d, f') -> (cont (a, d), go f')) $ runObject f (Request c id)
 
 instance Monad m => ArrowChoice (Process m) where
   left (Process f0) = Process $ go f0 where
     go f = Object $ \(Request e cont) -> case e of
       Left a -> liftM (\(b, f') -> (cont (Left b), go f')) $ runObject f (Request a id)
       Right c -> return (cont (Right c), go f)
+  right (Process f0) = Process $ go f0 where
+    go f = Object $ \(Request e cont) -> case e of
+      Right a -> liftM (\(b, f') -> (cont (Right b), go f')) $ runObject f (Request a id)
+      Left c -> return (cont (Left c), go f)
 
 instance Monad m => Profunctor (Process m) where
   dimap f g (Process f0) = Process (go f0) where
