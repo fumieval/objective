@@ -23,16 +23,26 @@ module Control.Object (
   oneshot,
   stateful,
   variable,
+  foldO,
+  foldOM,
   -- * Composition
-  (.>>.),
+  (@>>@),
+  (@>>^),
+  (^>>@),
   transObject,
   adaptObject,
+  -- * Monads
+  (@!),
+  (@!!),
   sequential,
-  runSequential,
-  servant,
+  sequentialT,
+  iterObject,
+  iterTObject,
+  iterative,
+  iterativeT,
   -- * Multifunctional objects
   loner,
-  (.|>.),
+  (@|>@),
   sharing,
   -- * Patterns
   flyweight,
@@ -40,7 +50,9 @@ module Control.Object (
   announceMaybe,
   announceMaybeT,
   Process(..),
-  _Process
+  _Process,
+  -- * Deprecated
+  runSequential
   )
 where
 
@@ -61,12 +73,14 @@ import Data.Typeable
 import Data.Witherable
 import qualified Control.Category as C
 import qualified Control.Monad.Trans.Operational.Mini as T
+import qualified Control.Monad.Trans.Free as T
 import qualified Data.Map.Strict as Map
 import qualified Data.Traversable as T
+import Control.Monad.Free
 
 -- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
--- 'Object's can be composed just like functions using '.>>.'; the identity element is 'echo'.
+-- 'Object's can be composed just like functions using '@>>@'; the identity element is 'echo'.
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
 #if __GLASGOW_HASKELL__ >= 707
   deriving (Typeable)
@@ -87,26 +101,30 @@ objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
 {-# NOINLINE objectTyCon #-}
 #endif
 
+echo :: Functor f => Object f f
+echo = Object (fmap (\x -> (x, echo)))
+
+(@>>@) :: Functor h => Object f g -> Object g h -> Object f h
+Object m @>>@ Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' @>>@ n')) $ n (m e)
+
+(@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
+m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
+
+(^>>@) :: Functor h => (forall x. f x -> g x) -> Object g h -> Object f h
+f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
+
 -- | Lift a natural transformation into an object.
 liftO :: Functor g => (forall x. f x -> g x) -> Object f g
-liftO f = Object $ fmap (\x -> (x, liftO f)) . f
+liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
+{-# INLINE liftO #-}
 
 -- | Change the workspace of the object.
 transObject :: Functor g => (forall x. f x -> g x) -> Object e f -> Object e g
-transObject f (Object m) = Object $ fmap (fmap (transObject f)) . f . m
+transObject f = (@>>^f)
 
 -- | Apply a function to the messages coming into the object.
 adaptObject :: Functor m => (forall x. g x -> f x) -> Object f m -> Object g m
-adaptObject f (Object m) = Object $ fmap (fmap (adaptObject f)) . m . f
-
--- | Parrots messages given.
-echo :: Functor e => Object e e
-echo = Object (fmap (\x -> (x, echo)))
-
--- | Compose two objects (aka Dependency Injection).
-(.>>.) :: Functor h => Object f g -> Object g h -> Object f h
-Object m .>>. Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' .>>. n')) $ n (m e)
-infixr 4 .>>.
+adaptObject f = (f^>>@)
 
 -- | Build an object using continuation passing style.
 oneshot :: (Functor f, Monad m) => (forall a. f (m a) -> m a) -> Object f m
@@ -115,14 +133,27 @@ oneshot m = go where
 {-# INLINE oneshot #-}
 
 -- | Build a stateful object.
+-- @stateful t s = t ^>>> variable s@
 stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
 stateful h = go where
   go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
 
+-- | fold-like, unwrapped analog of 'stateful'
+--     @folder runObject = id@
+--     @folder runSequential = sequential@
+--     @folder iterObject = iterable@
+foldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
+foldO h = go where go r = Object $ fmap (fmap go) . h r
+{-# INLINE foldO #-}
+
+foldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
+foldOM h = go where go r = Object $ liftM (fmap go) . h r
+{-# INLINE foldOM #-}
+
 -- | A mutable variable.
-variable :: Applicative f => s -> Object (State s) f
-variable s = Object $ \m -> let (a, s') = runState m s in pure (a, variable s')
+variable :: Monad m => s -> Object (StateT s m) m
+variable s = Object $ \m -> liftM (fmap variable) $ runStateT m s
 
 -- | Build a stateful object, sharing out the state.
 sharing :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object (State s |> f |> Nil) m
@@ -138,10 +169,9 @@ loner :: Functor f => Object Nil f
 loner = liftO exhaust
 
 -- | Extend an object by adding another independent object.
-(.|>.) :: Functor g => Object f g -> Object (Union s) g -> Object (f |> Union s) g
-p .|>. q = Object $ fmap (fmap (.|>.q)) . runObject p ||> fmap (fmap (p .|>.)) . runObject q
-
-infixr 3 .|>.
+(@|>@) :: Functor g => Object f g -> Object (Union s) g -> Object (f |> Union s) g
+p @|>@ q = Object $ fmap (fmap (@|>@q)) . runObject p ||> fmap (fmap (p @|>@)) . runObject q
+infixr 3 @|>@
 
 -- | The flyweight pattern.
 flyweight :: Monad m => Ord k => (k -> m a) -> Object (Request k a) m
@@ -150,13 +180,41 @@ flyweight f = go Map.empty where
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ Map.insert k a m)
 
+(@!) :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
+obj @! Return a = return (a, obj)
+obj @! (e :>>= cont) = runObject obj e >>= \(a, obj') -> obj' @! cont a
+
+(@!!) :: Monad m => Object e m -> T.ReifiedProgramT e m a -> m (a, Object e m)
+obj @!! T.Return a = return (a, obj)
+obj @!! T.Lift m cont = m >>= (obj @!!) . cont
+obj @!! (e T.:>>= cont) = runObject obj e >>= \(a, obj') -> obj' @!! cont a
+
 runSequential :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
-runSequential obj (Return a) = return (a, obj)
-runSequential obj (e :>>= cont) = runObject obj e >>= \(a, obj') -> runSequential obj' (cont a)
+runSequential = (@!)
+{-# DEPRECATED runSequential "use (@!!) instead" #-}
+
+iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
+iterObject obj (Pure a) = return (a, obj)
+iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
+
+iterTObject :: Monad m => Object f m -> T.FreeT f m a -> m (a, Object f m)
+iterTObject obj m = T.runFreeT m >>= \r -> case r of
+  T.Pure a -> return (a, obj)
+  T.Free f -> runObject obj f >>= \(cont, obj') -> iterTObject obj' cont
 
 -- | Let object handle sequential methods.
 sequential :: Monad m => Object e m -> Object (ReifiedProgram e) m
-sequential obj = Object $ liftM (fmap sequential) . runSequential obj
+sequential = foldOM (@!)
+
+-- | Let object handle sequential methods.
+sequentialT :: Monad m => Object e m -> Object (T.ReifiedProgramT e m) m
+sequentialT = foldOM (@!!)
+
+iterative :: Monad m => Object f m -> Object (Free f) m
+iterative = foldOM iterObject
+
+iterativeT :: Monad m => Object f m -> Object (T.FreeT f m) m
+iterativeT = foldOM iterTObject
 
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
@@ -180,12 +238,6 @@ announceMaybeT f = do
       >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
   elevate (put t')
   return (e [])
-
-servant :: Monad m => Object f m -> Object g (T.ReifiedProgramT f m) -> Object g m
-servant slave master = Object $ go slave . runObject master where
-  go sl (T.Lift m cont) = m >>= go sl . cont
-  go sl (f T.:>>= cont) = runObject sl f >>= \(a, sl') -> go sl' (cont a)
-  go sl (T.Return (a, master')) = return (a, servant sl master')
 
 -- | An object which is specialized to be a Mealy machine
 newtype Process m a b = Process { unProcess :: Object (Request a b) m }
@@ -248,7 +300,7 @@ instance Monad m => Strong (Process m) where
 instance Monad m => Choice (Process m) where
   left' = left
   {-# INLINE left' #-}
-  right' = right 
+  right' = right
   {-# INLINE right' #-}
 
 instance (Applicative m, Num o) => Num (Process m i o) where

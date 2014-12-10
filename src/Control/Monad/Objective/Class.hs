@@ -22,18 +22,16 @@
 -----------------------------------------------------------------------------
 module Control.Monad.Objective.Class where
 import Control.Object
-
 import Control.Elevator
 import Control.Monad.Trans.State.Strict
+import Control.Monad.Operational.Mini
 
 type Inst' f g = Inst g f g
-type Instance' f g = Inst g f g
-type Instance f g m = Inst m f g
 
 class ObjectiveBase b where
   data Inst b (f :: * -> *) (g :: * -> *)
   new :: Object f g -> b (Inst b f g)
-  invoke :: Monad r => (forall x. b x -> r x) -> (forall x. g x -> r x) -> Inst b f g -> f a -> r a
+  invoke :: Monad m => (forall x. b x -> m x) -> (forall x. g x -> m x) -> Inst b f g -> f a -> m a
 
 (.-) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> f a -> m a
 (.-) = invoke elevate elevate
@@ -56,3 +54,8 @@ i .& m = do
   return a
 
 infix 3 .&
+
+(.!) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> Program f a -> m a
+(.!) i = interpret (i.-)
+
+infix 3 .!
