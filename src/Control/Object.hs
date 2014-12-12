@@ -23,8 +23,9 @@ module Control.Object (
   oneshot,
   stateful,
   variable,
-  foldO,
-  foldOM,
+  unfoldO,
+  unfoldOM,
+  foldP,
   -- * Composition
   (@>>@),
   (@>>^),
@@ -66,6 +67,7 @@ import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.Class
 import Control.Elevator
 import Data.Functor.Request
+import Data.Functor.PushPull
 import Data.Monoid
 import Data.OpenUnion1.Clean
 import Data.Profunctor
@@ -101,15 +103,19 @@ objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
 {-# NOINLINE objectTyCon #-}
 #endif
 
+-- | The identity object
 echo :: Functor f => Object f f
 echo = Object (fmap (\x -> (x, echo)))
 
+-- | Object-object composition
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' @>>@ n')) $ n (m e)
 
+-- | Object-function composition
 (@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
 m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
 
+-- | Function-object composition
 (^>>@) :: Functor h => (forall x. f x -> g x) -> Object g h -> Object f h
 f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
 
@@ -133,23 +139,23 @@ oneshot m = go where
 {-# INLINE oneshot #-}
 
 -- | Build a stateful object.
--- @stateful t s = t ^>>> variable s@
+-- @stateful t s = t ^>>@ variable s@
 stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
 stateful h = go where
   go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
 
 -- | fold-like, unwrapped analog of 'stateful'
---     @folder runObject = id@
---     @folder runSequential = sequential@
---     @folder iterObject = iterable@
-foldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
-foldO h = go where go r = Object $ fmap (fmap go) . h r
-{-# INLINE foldO #-}
+--     @unfoldO runObject = id@
+--     @unfoldO runSequential = sequential@
+--     @unfoldO iterObject = iterable@
+unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
+unfoldO h = go where go r = Object $ fmap (fmap go) . h r
+{-# INLINE unfoldO #-}
 
-foldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
-foldOM h = go where go r = Object $ liftM (fmap go) . h r
-{-# INLINE foldOM #-}
+unfoldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
+unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
+{-# INLINE unfoldOM #-}
 
 -- | A mutable variable.
 variable :: Monad m => s -> Object (StateT s m) m
@@ -204,17 +210,24 @@ iterTObject obj m = T.runFreeT m >>= \r -> case r of
 
 -- | Let object handle sequential methods.
 sequential :: Monad m => Object e m -> Object (ReifiedProgram e) m
-sequential = foldOM (@!)
+sequential = unfoldOM (@!)
 
 -- | Let object handle sequential methods.
 sequentialT :: Monad m => Object e m -> Object (T.ReifiedProgramT e m) m
-sequentialT = foldOM (@!!)
+sequentialT = unfoldOM (@!!)
 
 iterative :: Monad m => Object f m -> Object (Free f) m
-iterative = foldOM iterObject
+iterative = unfoldOM iterObject
 
 iterativeT :: Monad m => Object f m -> Object (T.FreeT f m) m
-iterativeT = foldOM iterTObject
+iterativeT = unfoldOM iterTObject
+
+foldP :: Applicative f => (r -> a -> f r) -> r -> Object (PushPull a r) f
+foldP f = go where
+  go r = Object $ \pp -> case pp of
+    Push a c -> fmap (\z -> (c, z `seq` go z)) (f r a)
+    Pull cont -> pure (cont r, go r)
+{-# INLINE foldP #-}
 
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
