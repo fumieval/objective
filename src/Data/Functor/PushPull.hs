@@ -19,6 +19,8 @@ import Control.Applicative
 -- | The type for asynchronous input/output.
 data PushPull a b r = Push a r | Pull (b -> r) deriving (Functor, Typeable)
 
+type PushPull' a = PushPull a a
+
 instance Tower (PushPull a b) where
   type Floors (PushPull a b) = (,) a :> (->) b :> Empty
   toLoft = uncurry Push ||> Pull ||> exhaust
