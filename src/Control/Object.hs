@@ -26,10 +26,16 @@ module Control.Object (
   unfoldO,
   unfoldOM,
   foldP,
+  foldP',
+  sharing,
   -- * Composition
   (@>>@),
   (@>>^),
   (^>>@),
+  (@**@),
+  (@||@),
+  loner,
+  (@|>@),
   transObject,
   adaptObject,
   -- * Monads
@@ -41,12 +47,9 @@ module Control.Object (
   iterTObject,
   iterative,
   iterativeT,
-  -- * Multifunctional objects
-  loner,
-  (@|>@),
-  sharing,
   -- * Patterns
   flyweight,
+  flyweight',
   announce,
   announceMaybe,
   announceMaybeT,
@@ -79,6 +82,10 @@ import qualified Control.Monad.Trans.Free as T
 import qualified Data.Map.Strict as Map
 import qualified Data.Traversable as T
 import Control.Monad.Free
+import qualified Data.HashMap.Strict as HM
+import Data.Functor.Day
+import Data.Functor.Sum as F
+import Data.Hashable
 
 -- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -110,14 +117,27 @@ echo = Object (fmap (\x -> (x, echo)))
 -- | Object-object composition
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' @>>@ n')) $ n (m e)
+infixr 1 @>>@
 
 -- | Object-function composition
 (@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
 m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
+infixr 1 @>>^
 
 -- | Function-object composition
 (^>>@) :: Functor h => (forall x. f x -> g x) -> Object g h -> Object f h
 f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
+infixr 1 ^>>@
+
+(@**@) :: Applicative m => Object f m -> Object g m -> Object (Day f g) m
+a @**@ b = Object $ \(Day f g r) -> (\(x, a') (y, b') -> (r x y, a' @**@ b')) <$> runObject a f <*> runObject b g
+infixr 3 @**@
+
+(@||@) :: Functor m => Object f m -> Object g m -> Object (F.Sum f g) m
+a @||@ b = Object $ \r -> case r of
+  InL f -> fmap (fmap (@||@b)) (runObject a f)
+  InR g -> fmap (fmap (a@||@)) (runObject b g)
+infixr 2 @||@
 
 -- | Lift a natural transformation into an object.
 liftO :: Functor g => (forall x. f x -> g x) -> Object f g
@@ -145,7 +165,7 @@ stateful h = go where
   go s = Object $ liftM (\(a, s') -> (a, go s')) . flip runStateT s . h
 {-# INLINE stateful #-}
 
--- | fold-like, unwrapped analog of 'stateful'
+-- | The unwrapped analog of 'stateful'
 --     @unfoldO runObject = id@
 --     @unfoldO runSequential = sequential@
 --     @unfoldO iterObject = iterable@
@@ -180,11 +200,18 @@ p @|>@ q = Object $ fmap (fmap (@|>@q)) . runObject p ||> fmap (fmap (p @|>@)) .
 infixr 3 @|>@
 
 -- | The flyweight pattern.
-flyweight :: Monad m => Ord k => (k -> m a) -> Object (Request k a) m
+flyweight :: (Monad m, Ord k) => (k -> m a) -> Object (Request k a) m
 flyweight f = go Map.empty where
   go m = Object $ \(Request k cont) -> case Map.lookup k m of
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ Map.insert k a m)
+
+-- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
+flyweight' :: (Monad m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
+flyweight' f = go HM.empty where
+  go m = Object $ \(Request k cont) -> case HM.lookup k m of
+    Just a -> return (cont a, go m)
+    Nothing -> f k >>= \a -> return (cont a, go $ HM.insert k a m)
 
 (@!) :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
 obj @! Return a = return (a, obj)
@@ -222,12 +249,19 @@ iterative = unfoldOM iterObject
 iterativeT :: Monad m => Object f m -> Object (T.FreeT f m) m
 iterativeT = unfoldOM iterTObject
 
-foldP :: Applicative f => (r -> a -> f r) -> r -> Object (PushPull a r) f
+foldP :: Applicative f => (a -> r -> f r) -> r -> Object (PushPull a r) f
 foldP f = go where
   go r = Object $ \pp -> case pp of
-    Push a c -> fmap (\z -> (c, z `seq` go z)) (f r a)
+    Push a c -> fmap (\z -> (c, z `seq` go z)) (f a r)
     Pull cont -> pure (cont r, go r)
 {-# INLINE foldP #-}
+
+foldP' :: Applicative f => (a -> r -> r) -> r -> Object (PushPull a r) f
+foldP' f = go where
+  go r = Object $ \pp -> case pp of
+    Push a c -> let z = f a r in pure (c, z `seq` go z)
+    Pull cont -> pure (cont r, go r)
+{-# INLINE foldP' #-}
 
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do

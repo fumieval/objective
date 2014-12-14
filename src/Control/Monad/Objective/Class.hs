@@ -29,25 +29,27 @@ import Control.Monad
 
 type Inst' f g = Inst g f g
 
-class ObjectiveBase b where
+class Monad b => ObjectiveBase b where
   data Inst b (f :: * -> *) (g :: * -> *)
   new :: Object f g -> b (Inst b f g)
   invoke :: Monad m => (forall x. b x -> m x) -> (forall x. g x -> m x) -> Inst b f g -> f a -> m a
 
-(.-) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> f a -> m a
+type MonadObjective b m = (ObjectiveBase b, Elevate b m, Monad m)
+
+(.-) :: (MonadObjective b m, Elevate g m) => Inst b f g -> f a -> m a
 (.-) = invoke elevate elevate
 {-# INLINE (.-) #-}
 
 infix 3 .-
 
 -- | Invoke a method.
-(.^) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m, Elevate e f) => Inst b f g -> e a -> m a
+(.^) :: (MonadObjective b m, Elevate g m, Elevate e f) => Inst b f g -> e a -> m a
 i .^ e = i .- elevate e
 {-# INLINE (.^) #-}
 infix 3 .^
 
--- | Specialized (.^) for StateT
-(.&) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m, Elevate (State s) f) => Inst b f g -> StateT s m a -> m a
+-- | (.^) for StateT
+(.&) :: (MonadObjective b m, Elevate g m, Elevate (State s) f) => Inst b f g -> StateT s m a -> m a
 i .& m = do
   s <- i .^ get
   (a, s') <- runStateT m s
@@ -56,12 +58,12 @@ i .& m = do
 
 infix 3 .&
 
-(.!) :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> Program f a -> m a
+(.!) :: (MonadObjective b m, Elevate g m) => Inst b f g -> Program f a -> m a
 (.!) i = interpret (i.-)
 
 infix 3 .!
 
 -- | We can convert method invocation into an object trivially.
 -- @invocation i = liftO (i.-)@
-invocation :: (ObjectiveBase b, Elevate b m, Elevate g m, Monad m) => Inst b f g -> Object f m
+invocation :: (MonadObjective b m, Elevate g m) => Inst b f g -> Object f m
 invocation i = Object $ liftM (\a -> (a, invocation i)). (i.-)

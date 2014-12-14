@@ -17,9 +17,18 @@ import Control.Monad
 import Data.Monoid
 import Control.Applicative
 import Data.OpenUnion1.Clean
+import Data.Profunctor
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
+
+mapRequest :: (a -> a') -> Request a b r -> Request a' b r
+mapRequest f (Request a br) = Request (f a) br
+{-# INLINE mapRequest #-}
+
+instance Profunctor (Request a) where
+  dimap f g (Request a br) = Request a (dimap f g br)
+  {-# INLINE dimap #-}
 
 instance Monoid a => Applicative (Request a b) where
   pure a = Request mempty (const a)
