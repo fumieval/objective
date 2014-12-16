@@ -29,6 +29,8 @@ module Control.Object (
   foldP,
   foldP',
   sharing,
+  animate,
+  transit,
   -- * Composition
   (@>>@),
   (@>>^),
@@ -280,6 +282,16 @@ foldP' f = go where
     Pull cont -> pure (cont r, go r)
 {-# INLINE foldP' #-}
 
+animate :: (Monad m, Fractional t) => (t -> a) -> Object (Request t a) m
+animate f = go 0 where
+  go t = Object $ \(Request dt cont) -> return (cont $ f t, go (t + dt))
+
+transit :: (MonadPlus m, Fractional t, Ord t) => t -> (t -> a) -> Object (Request t a) m
+transit len f = go 0 where
+  go t
+    | t >= len = Object $ const mzero
+    | otherwise = Object $ \(Request dt cont) -> return (cont $ f (t / len), go (t + dt))
+
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
   t <- elevate get
@@ -409,7 +421,7 @@ instance Monad m => Monad (Mortal f m) where
 runMortal :: Monad m => Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
 runMortal = unsafeCoerce runObject
 
--- | For every adjoint functor f ⊣ g, we can "connect" @Object g m@ and @Object f m@ permanently.
+-- | For every adjunction f ⊣ g, we can "connect" @Object g m@ and @Object f m@ permanently.
 ($$) :: (Monad m, Adjunction f g) => Object g m -> Object f m -> m x
 a $$ b = do
   (x, a') <- runObject a askRep
