@@ -1,14 +1,18 @@
+0.6.3
+----
+* Added `Variable`, an alias for `variable` objects.
+
 0.6.2
 ----
 * Added `announce`, `announceMaybe` and `announceMaybeT` which invoke a method for every objects in a container.
 * Added `(@**@)` and `(@||@)`.
 * Renamed `(.>>.)` to `(@>>@)`, `.|>.` to `(@|>@)` for consistency.
-* Added `filterPush`.
+* Added `filterPush`, `bipush`, `bipull`.
 * Added `iterObject`, `iterTObject`, `iterative`, `iterativeT` for free monads.
 * Renamed `runSequential` to `(@!)`.
 * Added combinators for `ReifiedProgramT`: `(@!!)` and `sequentialT`.
 * Changed the semantics of `variable` to accept `StateT`.
-* Added `flyweight'` that relies on HashMap
+* Added `flyweight'` that relies on HashMap.
 * Added `MonadObjective` constraint
 
 0.6.1

@@ -23,6 +23,7 @@ module Control.Object (
   oneshot,
   stateful,
   variable,
+  Variable,
   unfoldO,
   unfoldOM,
   foldP,
@@ -38,6 +39,11 @@ module Control.Object (
   (@|>@),
   transObject,
   adaptObject,
+  -- * Stream
+  ($$),
+  ($$!),
+  (!$$),
+  (!$$!),
   -- * Monads
   (@!),
   (@!!),
@@ -55,41 +61,49 @@ module Control.Object (
   announceMaybeT,
   Process(..),
   _Process,
+  Mortal(..),
+  runMortal,
   -- * Deprecated
   runSequential
   )
 where
 
 import Control.Applicative
-import Control.Arrow
+import Control.Arrow as A
+import Control.Elevator
 import Control.Monad
+import Control.Monad.Free
 import Control.Monad.Operational.Mini
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Writer.Strict
-import Control.Monad.Trans.Class
-import Control.Elevator
-import Data.Functor.Request
+import Data.Functor.Day
 import Data.Functor.PushPull
+import Data.Functor.Request
+import Data.Functor.Sum as F
+import Data.Hashable
 import Data.Monoid
 import Data.OpenUnion1.Clean
 import Data.Profunctor
 import Data.Typeable
 import Data.Witherable
 import qualified Control.Category as C
-import qualified Control.Monad.Trans.Operational.Mini as T
 import qualified Control.Monad.Trans.Free as T
+import qualified Control.Monad.Trans.Operational.Mini as T
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 import qualified Data.Traversable as T
-import Control.Monad.Free
-import qualified Data.HashMap.Strict as HM
-import Data.Functor.Day
-import Data.Functor.Sum as F
-import Data.Hashable
+import Control.Monad.Trans.Either as E
+import Unsafe.Coerce
 
--- | The type 'Object f g' represents objects which can handle messages @f@, perform actions in the environment @g@.
+import Data.Functor.Rep
+import Data.Functor.Adjunction
+
+-- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
 -- 'Object's can be composed just like functions using '@>>@'; the identity element is 'echo'.
+-- Objects are morphisms of the category of functors
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
 #if __GLASGOW_HASKELL__ >= 707
   deriving (Typeable)
@@ -159,6 +173,7 @@ oneshot m = go where
 {-# INLINE oneshot #-}
 
 -- | Build a stateful object.
+--
 -- @stateful t s = t ^>>@ variable s@
 stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
 stateful h = go where
@@ -177,8 +192,10 @@ unfoldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
 unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
 {-# INLINE unfoldOM #-}
 
+type Variable s = forall m. Monad m => Object (StateT s m) m
+
 -- | A mutable variable.
-variable :: Monad m => s -> Object (StateT s m) m
+variable :: s -> Variable s
 variable s = Object $ \m -> liftM (fmap variable) $ runStateT m s
 
 -- | Build a stateful object, sharing out the state.
@@ -224,7 +241,7 @@ obj @!! (e T.:>>= cont) = runObject obj e >>= \(a, obj') -> obj' @!! cont a
 
 runSequential :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
 runSequential = (@!)
-{-# DEPRECATED runSequential "use (@!!) instead" #-}
+{-# DEPRECATED runSequential "use (@!) instead" #-}
 
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
@@ -290,7 +307,7 @@ announceMaybeT f = do
 newtype Process m a b = Process { unProcess :: Object (Request a b) m }
 
 -- | @_Process :: Iso' (Object (Request a b) m) (Process m a b)@
-_Process :: (Profunctor p, Functor f) => p (Process m a b) (f (Process m a b)) -> (p (Object (Request a b) m) (f (Object (Request a b) m)))
+_Process :: (Profunctor p, Functor f) => p (Process m a b) (f (Process m a b)) -> p (Object (Request a b) m) (f (Object (Request a b) m))
 _Process = dimap Process (fmap unProcess)
 
 instance Functor f => Functor (Process f a) where
@@ -345,9 +362,9 @@ instance Monad m => Strong (Process m) where
   {-# INLINE second' #-}
 
 instance Monad m => Choice (Process m) where
-  left' = left
+  left' = A.left
   {-# INLINE left' #-}
-  right' = right
+  right' = A.right
   {-# INLINE right' #-}
 
 instance (Applicative m, Num o) => Num (Process m i o) where
@@ -369,3 +386,63 @@ instance (Applicative m, Fractional o) => Fractional (Process m i o) where
   {-# INLINE (/) #-}
   recip = fmap recip
   fromRational = pure . fromRational
+
+-- | Object with a final result.
+--
+-- @Object f g ≡ Mortal f g Void@
+--
+newtype Mortal f g a = Mortal { unMortal :: Object f (EitherT a g) }
+
+instance (Functor m, Monad m) => Functor (Mortal f m) where
+  fmap f (Mortal obj) = Mortal (obj @>>^ bimapEitherT f id)
+
+instance (Functor m, Monad m) => Applicative (Mortal f m) where
+  pure = return
+  (<*>) = ap
+
+instance Monad m => Monad (Mortal f m) where
+  return a = Mortal $ Object $ const $ E.left a
+  Mortal obj >>= k = unsafeCoerce $ \f -> lift (runEitherT (runObject obj f)) >>= \r -> case r of
+    Left a -> runObject (unMortal (k a)) f
+    Right (x, obj') -> return (x, unMortal (Mortal obj' >>= k))
+
+runMortal :: Monad m => Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
+runMortal = unsafeCoerce runObject
+
+-- | For every adjoint functor f ⊣ g, we can "connect" @Object g m@ and @Object f m@ permanently.
+($$) :: (Monad m, Adjunction f g) => Object g m -> Object f m -> m x
+a $$ b = do
+  (x, a') <- runObject a askRep
+  ((), b') <- runObject b (unit () `index` x)
+  a' $$ b'
+
+-- | Like '$$', but kept until the right 'Mortal' dies.
+($$!) :: (Monad m, Adjunction f g) => Object g m -> Mortal f m a -> m (Object g m, a)
+o $$! m = do
+  (x, o') <- runObject o askRep
+  r <- runMortal m (unit () `index` x)
+  case r of
+    Left a -> return (o', a)
+    Right ((), m') -> o' $$! m'
+
+-- | Like '$$', but kept until the left 'Mortal' dies.
+(!$$) :: (Monad m, Adjunction f g) => Mortal g m a -> Object f m -> m (a, Object f m)
+m !$$ o = do
+  r <- runMortal m askRep
+  case r of
+    Left a -> return (a, o)
+    Right (x, m') -> do
+      ((), o') <- runObject o (unit () `index` x)
+      m' !$$ o'
+
+-- | Connect two 'Mortal's.
+(!$$!) :: (Monad m, Adjunction f g) => Mortal g m a -> Mortal f m b -> m (Either (a, Mortal f m b) (Mortal g m a, b))
+m !$$! n = do
+  r <- runMortal m askRep
+  case r of
+    Left a -> return (Left (a, n))
+    Right (x, m') -> do
+      s <- runMortal n (unit () `index` x)
+      case s of
+        Left b -> return (Right (m', b))
+        Right ((), n') -> m' !$$! n'

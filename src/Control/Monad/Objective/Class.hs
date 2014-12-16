@@ -31,6 +31,8 @@ type Inst' f g = Inst g f g
 
 class Monad b => ObjectiveBase b where
   data Inst b (f :: * -> *) (g :: * -> *)
+  type InstOf b o :: *
+  type InstOf b (Object f g) = Inst b f g
   new :: Object f g -> b (Inst b f g)
   invoke :: Monad m => (forall x. b x -> m x) -> (forall x. g x -> m x) -> Inst b f g -> f a -> m a
 
