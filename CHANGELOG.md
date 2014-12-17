@@ -1,6 +1,10 @@
 0.6.3
 ----
 * Added `Variable`, an alias for `variable` objects.
+* Added `Mortal`.
+* Increased fixity of invocation operators to 5.
+* Added stream connection operators.
+* Added `transit` and `animate`.
 
 0.6.2
 ----

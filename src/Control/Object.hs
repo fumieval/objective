@@ -18,6 +18,7 @@
 module Control.Object (
   -- * Construction
   Object(..),
+  (@-),
   liftO,
   echo,
   oneshot,
@@ -125,6 +126,12 @@ objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
 #endif
 {-# NOINLINE objectTyCon #-}
 #endif
+
+-- | An alias for 'runObject'.
+(@-) :: Object f g -> f x -> g (x, Object f g)
+(@-) = runObject
+{-# INLINE (@-) #-}
+infixr 5 @-
 
 -- | The identity object
 echo :: Functor f => Object f f
@@ -235,11 +242,13 @@ flyweight' f = go HM.empty where
 (@!) :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
 obj @! Return a = return (a, obj)
 obj @! (e :>>= cont) = runObject obj e >>= \(a, obj') -> obj' @! cont a
+infixr 5 @!
 
 (@!!) :: Monad m => Object e m -> T.ReifiedProgramT e m a -> m (a, Object e m)
 obj @!! T.Return a = return (a, obj)
 obj @!! T.Lift m cont = m >>= (obj @!!) . cont
 obj @!! (e T.:>>= cont) = runObject obj e >>= \(a, obj') -> obj' @!! cont a
+infixr 5 @!!
 
 runSequential :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
 runSequential = (@!)
@@ -282,15 +291,15 @@ foldP' f = go where
     Pull cont -> pure (cont r, go r)
 {-# INLINE foldP' #-}
 
-animate :: (Monad m, Fractional t) => (t -> a) -> Object (Request t a) m
+animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
 animate f = go 0 where
-  go t = Object $ \(Request dt cont) -> return (cont $ f t, go (t + dt))
+  go t = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f t
 
-transit :: (MonadPlus m, Fractional t, Ord t) => t -> (t -> a) -> Object (Request t a) m
+transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m
 transit len f = go 0 where
   go t
-    | t >= len = Object $ const mzero
-    | otherwise = Object $ \(Request dt cont) -> return (cont $ f (t / len), go (t + dt))
+    | t >= len = Object $ const empty
+    | otherwise = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f (t / len)
 
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
@@ -427,6 +436,7 @@ a $$ b = do
   (x, a') <- runObject a askRep
   ((), b') <- runObject b (unit () `index` x)
   a' $$ b'
+infix 0 $$
 
 -- | Like '$$', but kept until the right 'Mortal' dies.
 ($$!) :: (Monad m, Adjunction f g) => Object g m -> Mortal f m a -> m (Object g m, a)
@@ -436,6 +446,7 @@ o $$! m = do
   case r of
     Left a -> return (o', a)
     Right ((), m') -> o' $$! m'
+infix 0 $$!
 
 -- | Like '$$', but kept until the left 'Mortal' dies.
 (!$$) :: (Monad m, Adjunction f g) => Mortal g m a -> Object f m -> m (a, Object f m)
@@ -446,6 +457,7 @@ m !$$ o = do
     Right (x, m') -> do
       ((), o') <- runObject o (unit () `index` x)
       m' !$$ o'
+infix 0 !$$
 
 -- | Connect two 'Mortal's.
 (!$$!) :: (Monad m, Adjunction f g) => Mortal g m a -> Mortal f m b -> m (Either (a, Mortal f m b) (Mortal g m a, b))
@@ -458,3 +470,5 @@ m !$$! n = do
       case s of
         Left b -> return (Right (m', b))
         Right ((), n') -> m' !$$! n'
+
+infix 0 !$$!
