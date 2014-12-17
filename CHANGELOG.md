@@ -1,3 +1,7 @@
+0.6.3.1
+----
+* Reverted the fixity.
+
 0.6.3
 ----
 * Added `Variable`, an alias for `variable` objects.

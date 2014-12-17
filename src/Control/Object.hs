@@ -129,7 +129,7 @@ objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
 (@-) :: Object f g -> f x -> g (x, Object f g)
 (@-) = runObject
 {-# INLINE (@-) #-}
-infixr 5 @-
+infixr 3 @-
 
 -- | The identity object
 echo :: Functor f => Object f f
@@ -240,13 +240,13 @@ flyweight' f = go HM.empty where
 (@!) :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
 obj @! Return a = return (a, obj)
 obj @! (e :>>= cont) = runObject obj e >>= \(a, obj') -> obj' @! cont a
-infixr 5 @!
+infixr 3 @!
 
 (@!!) :: Monad m => Object e m -> T.ReifiedProgramT e m a -> m (a, Object e m)
 obj @!! T.Return a = return (a, obj)
 obj @!! T.Lift m cont = m >>= (obj @!!) . cont
 obj @!! (e T.:>>= cont) = runObject obj e >>= \(a, obj') -> obj' @!! cont a
-infixr 5 @!!
+infixr 3 @!!
 
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)

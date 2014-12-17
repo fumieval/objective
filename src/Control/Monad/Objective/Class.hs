@@ -42,13 +42,13 @@ type MonadObjective b m = (ObjectiveBase b, Elevate b m, Monad m)
 (.-) = invoke elevate elevate
 {-# INLINE (.-) #-}
 
-infixr 5 .-
+infixr 3 .-
 
 -- | Invoke a method.
 (.^) :: (MonadObjective b m, Elevate g m, Elevate e f) => Inst b f g -> e a -> m a
 i .^ e = i .- elevate e
 {-# INLINE (.^) #-}
-infixr 5 .^
+infixr 3 .^
 
 -- | (.^) for StateT
 (.&) :: (MonadObjective b m, Elevate g m, Elevate (State s) f) => Inst b f g -> StateT s m a -> m a
@@ -58,12 +58,12 @@ i .& m = do
   i .^ put s'
   return a
 
-infixr 5 .&
+infixr 3 .&
 
 (.!) :: (MonadObjective b m, Elevate g m) => Inst b f g -> Program f a -> m a
 (.!) i = interpret (i.-)
 
-infixr 5 .!
+infixr 3 .!
 
 -- | We can convert method invocation into an object trivially.
 -- @invocation i = liftO (i.-)@
