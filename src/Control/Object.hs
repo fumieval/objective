@@ -66,8 +66,6 @@ module Control.Object (
   _Process,
   Mortal(..),
   runMortal,
-  -- * Deprecated
-  runSequential
   )
 where
 
@@ -249,10 +247,6 @@ obj @!! T.Return a = return (a, obj)
 obj @!! T.Lift m cont = m >>= (obj @!!) . cont
 obj @!! (e T.:>>= cont) = runObject obj e >>= \(a, obj') -> obj' @!! cont a
 infixr 5 @!!
-
-runSequential :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)
-runSequential = (@!)
-{-# DEPRECATED runSequential "use (@!) instead" #-}
 
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
