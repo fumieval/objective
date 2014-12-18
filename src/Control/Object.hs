@@ -62,6 +62,7 @@ module Control.Object (
   announce,
   announceMaybe,
   announceMaybeT,
+  announceMortal,
   Process(..),
   _Process,
   Mortal(..),
@@ -303,20 +304,41 @@ announce f = do
   elevate (put t')
   return (e [])
 
-announceMaybe :: (Witherable t, Monad m, Elevate (State (t (Object f Maybe))) m) => f a -> m [a]
+announceMaybe :: (Witherable t
+    , Monad m
+    , Elevate (State (t (Object f Maybe))) m) => f a -> m [a]
 announceMaybe f = elevate $ state
   $ \t -> let (t', Endo e) = runWriter
                 $ witherM (\obj -> case runObject obj f of
                   Just (x, obj') -> lift $ writer (obj', Endo (x:))
                   Nothing -> mzero) t in (e [], t')
 
-announceMaybeT :: (Witherable t, Monad m, State (t (Object f (MaybeT g))) ∈ Floors1 m, g ∈ Floors1 m, Tower m) => f a -> m [a]
+announceMaybeT :: (Witherable t
+  , Monad m
+  , State (t (Object f (MaybeT g))) ∈ Floors1 m
+  , g ∈ Floors1 m
+  , Tower m) => f a -> m [a]
 announceMaybeT f = do
   t <- elevate get
   (t', Endo e) <- runWriterT $ witherM (\obj -> mapMaybeT (lift . elevate) (runObject obj f)
       >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
   elevate (put t')
   return (e [])
+
+announceMortal :: (Witherable t
+  , Monad m
+  , State (t (Mortal f g ())) ∈ Floors1 m
+  , g ∈ Floors1 m
+  , Tower m) => f a -> m [a]
+announceMortal f = do
+  t <- elevate get
+  (t', Endo e) <- runWriterT $ witherM (\obj -> MaybeT (lift $ liftM is $ elevate $ runMortal obj f)
+      >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
+  elevate (put t')
+  return (e [])
+  where
+    is (Left ()) = Nothing
+    is (Right a) = Just a
 
 -- | An object which is specialized to be a Mealy machine
 newtype Process m a b = Process { unProcess :: Object (Request a b) m }
@@ -421,11 +443,11 @@ instance Monad m => Monad (Mortal f m) where
     Left a -> EitherT $ runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
 
-mortal :: Monad m => (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
+mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = unsafeCoerce f
 {-# INLINE mortal #-}
 
-runMortal :: Monad m => Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
+runMortal :: Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
 runMortal = unsafeCoerce
 {-# INLINE runMortal #-}
 
