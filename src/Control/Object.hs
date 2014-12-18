@@ -137,7 +137,7 @@ echo = Object (fmap (\x -> (x, echo)))
 
 -- | Object-object composition
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
-Object m @>>@ Object n = Object $ \e -> fmap (\((x, m'), n') -> (x, m' @>>@ n')) $ n (m e)
+Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
 infixr 1 @>>@
 
 -- | Object-function composition
@@ -416,13 +416,18 @@ instance (Functor m, Monad m) => Applicative (Mortal f m) where
   (<*>) = ap
 
 instance Monad m => Monad (Mortal f m) where
-  return a = Mortal $ Object $ const $ E.left a
-  Mortal obj >>= k = unsafeCoerce $ \f -> lift (runEitherT (runObject obj f)) >>= \r -> case r of
-    Left a -> runObject (unMortal (k a)) f
-    Right (x, obj') -> return (x, unMortal (Mortal obj' >>= k))
+  return a = mortal $ const $ E.left a
+  m >>= k = mortal $ \f -> lift (runMortal m f) >>= \r -> case r of
+    Left a -> EitherT $ runMortal (k a) f
+    Right (x, m') -> return (x, m' >>= k)
+
+mortal :: Monad m => (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
+mortal f = unsafeCoerce f
+{-# INLINE mortal #-}
 
 runMortal :: Monad m => Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
-runMortal = unsafeCoerce runObject
+runMortal = unsafeCoerce
+{-# INLINE runMortal #-}
 
 -- | For every adjunction f ⊣ g, we can "connect" @Object g m@ and @Object f m@ permanently.
 ($$) :: (Monad m, Adjunction f g) => Object g m -> Object f m -> m x
