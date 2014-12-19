@@ -21,11 +21,12 @@
 --
 -----------------------------------------------------------------------------
 module Control.Monad.Objective.Class where
-import Control.Object
+import Control.Object.Object
 import Control.Elevator
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Operational.Mini
 import Control.Monad
+import Data.Functor.Coproduct
 
 type Inst' f g = Inst g f g
 

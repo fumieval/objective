@@ -16,7 +16,7 @@
 module Control.Monad.Objective.IO  where
 import Control.Monad.Objective.Class
 import Control.Concurrent
-import Control.Object
+import Control.Object.Object
 import Control.Monad.IO.Class
 
 instance ObjectiveBase IO where

@@ -18,7 +18,7 @@ module Control.Monad.Objective.ST where
 
 import Control.Monad.Objective.Class
 import Control.Monad.ST
-import Control.Object
+import Control.Object.Object
 import Data.STRef
 import Control.Elevator
 
