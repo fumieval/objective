@@ -60,3 +60,6 @@ filterL p obj = Object $ \f -> if counit (tabulate p <$ f)
 fromFoldable :: (Foldable t, Alternative m, Adjunction f g) => t (Rep g) -> Object g m
 fromFoldable = F.foldr go $ Object $ const empty where
   go x m = Object $ \cont -> pure (index cont x, m)
+
+mapL :: (Adjunction f g, Adjunction f' g', Functor m) => (Rep g' -> Rep g) -> Object f m -> Object f' m
+mapL t = (^>>@) $ rightAdjunct $ \x -> tabulate (index (unit x) . t)
