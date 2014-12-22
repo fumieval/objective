@@ -6,6 +6,8 @@ import Control.Object.Object
 import Data.Foldable as F
 import Control.Applicative
 import Data.Functor.Request
+import Control.Monad
+import Control.Monad.Trans.Either
 
 -- | For every adjunction f ⊣ g, we can "connect" @Object g m@ and @Object f m@ permanently.
 ($$) :: (Monad m, Adjunction f g) => Object g m -> Object f m -> m x
@@ -15,25 +17,29 @@ a $$ b = do
   a' $$ b'
 infix 1 $$
 
--- | 'filter' for consumers.
+($?$) :: (Monad m, Adjunction f g) => Object g (EitherT a m) -> Object f (EitherT a m) -> m a
+a $?$ b = liftM (either id id) $ runEitherT (a $$ b)
+
+-- | 'filter' for a sink.
 filterL :: (Adjunction f g, Applicative m) => (Rep g -> Bool) -> Object f m -> Object f m
 filterL p obj = Object $ \f -> if counit (tabulate p <$ f)
   then fmap (filterL p) `fmap` runObject obj f
   else pure (extractL f, filterL p obj)
 
+-- | 'map' for a sink.
 mapL :: (Adjunction f g, Adjunction f' g', Functor m) => (Rep g' -> Rep g) -> Object f m -> Object f' m
 mapL t = (^>>@) $ rightAdjunct $ \x -> tabulate (index (unit x) . t)
 
--- | Create a producer from a 'Foldable' container.
+-- | Create a source from a 'Foldable' container.
 fromFoldable :: (Foldable t, Alternative m, Adjunction f g) => t (Rep g) -> Object g m
 fromFoldable = F.foldr go $ Object $ const empty where
   go x m = Object $ \cont -> pure (index cont x, m)
 
--- TODO: filterR and mapR
-
+-- | 'map' for a source.
 mapR :: (Representable f, Representable g, Functor m) => (Rep f -> Rep g) -> Object f m -> Object g m
 mapR t = (^>>@) $ \f -> tabulate (index f . t)
 
+-- | 'filter' for a source.
 filterR :: (Representable f, Monad m) => (Rep f -> Bool) -> Object f m -> Object f m
 filterR p obj = Object $ \f -> go f obj where
   go f o = do
@@ -42,12 +48,14 @@ filterR p obj = Object $ \f -> go f obj where
       then return (index f x, filterR p o')
       else go f o'
 
+-- | Extend a source using a rank-1 Mealy machine.
 ($$@) :: (Representable f, Representable g, Monad m) => Object f m -> Object (Request (Rep f) (Rep g)) m -> Object g m
 obj $$@ pro = Object $ \g -> do
   (x, obj') <- runObject obj askRep
   (a, pro') <- runObject pro $ Request x (index g)
   return (a, obj' $$@ pro')
 
+-- | Attach a rank-1 Mealy machine into a sink.
 (@$$) :: (Adjunction f g, Adjunction f' g', Monad m) => Object (Request (Rep g') (Rep g)) m -> Object f m -> Object f' m
 pro @$$ obj = Object $ \f' -> do
   let (a, f_) = splitL f'

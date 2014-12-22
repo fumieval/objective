@@ -25,14 +25,6 @@ oneshot m = go where
   go = Object $ \e -> m (fmap return e) >>= \a -> return (a, go)
 {-# INLINE oneshot #-}
 
--- | Change the workspace of the object.
-transObject :: Functor g => (forall x. f x -> g x) -> Object e f -> Object e g
-transObject f = (@>>^f)
-
--- | Apply a function to the messages coming into the object.
-adaptObject :: Functor m => (forall x. g x -> f x) -> Object f m -> Object g m
-adaptObject f = (f^>>@)
-
 -- | The flyweight pattern.
 flyweight :: (Monad m, Ord k) => (k -> m a) -> Object (Request k a) m
 flyweight f = go Map.empty where
@@ -46,20 +38,6 @@ flyweight' f = go HM.empty where
   go m = Object $ \(Request k cont) -> case HM.lookup k m of
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ HM.insert k a m)
-
-foldP :: Applicative f => (a -> r -> f r) -> r -> Object (PushPull a r) f
-foldP f = go where
-  go r = Object $ \pp -> case pp of
-    Push a c -> fmap (\z -> (c, z `seq` go z)) (f a r)
-    Pull cont -> pure (cont r, go r)
-{-# INLINE foldP #-}
-
-foldP' :: Applicative f => (a -> r -> r) -> r -> Object (PushPull a r) f
-foldP' f = go where
-  go r = Object $ \pp -> case pp of
-    Push a c -> let z = f a r in pure (c, z `seq` go z)
-    Pull cont -> pure (cont r, go r)
-{-# INLINE foldP' #-}
 
 animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
 animate f = go 0 where
@@ -128,9 +106,9 @@ moore f = go where
     Pull cont -> pure (cont r, go r)
 {-# INLINE moore #-}
 
-moore' :: Applicative f => (a -> r -> r) -> r -> Object (PushPull a r) f
-moore' f = go where
+foldPP :: Applicative f => (a -> r -> r) -> r -> Object (PushPull a r) f
+foldPP f = go where
   go r = Object $ \pp -> case pp of
     Push a c -> let z = f a r in pure (c, z `seq` go z)
     Pull cont -> pure (cont r, go r)
-{-# INLINE moore' #-}
+{-# INLINE foldPP #-}

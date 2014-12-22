@@ -139,11 +139,11 @@ iterTObject obj m = T.runFreeT m >>= \r -> case r of
   T.Pure a -> return (a, obj)
   T.Free f -> runObject obj f >>= \(cont, obj') -> iterTObject obj' cont
 
--- | Let object handle sequential methods.
+-- | Let object handle 'ReifiedProgram'.
 sequential :: Monad m => Object e m -> Object (ReifiedProgram e) m
 sequential = unfoldOM (@!)
 
--- | Let object handle sequential methods.
+-- | Let object handle 'ReifiedProgramT'.
 sequentialT :: Monad m => Object e m -> Object (T.ReifiedProgramT e m) m
 sequentialT = unfoldOM (@!!)
 
@@ -152,3 +152,11 @@ iterative = unfoldOM iterObject
 
 iterativeT :: Monad m => Object f m -> Object (T.FreeT f m) m
 iterativeT = unfoldOM iterTObject
+
+-- | Change the workspace of the object.
+transObject :: Functor g => (forall x. f x -> g x) -> Object e f -> Object e g
+transObject f = (@>>^f)
+
+-- | Apply a function to methods coming into an object.
+adaptObject :: Functor m => (forall x. g x -> f x) -> Object f m -> Object g m
+adaptObject f = (f^>>@)
