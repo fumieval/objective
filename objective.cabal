@@ -44,6 +44,7 @@ library
     , unordered-containers
     , hashable >= 1.2 && <1.4
     , either
+    , void
     , adjunctions >= 4.0 && <5
     , transformers >= 0.3 && <0.5
   ghc-options: -Wall

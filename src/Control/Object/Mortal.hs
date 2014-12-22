@@ -3,7 +3,8 @@ module Control.Object.Mortal (
     Mortal(..),
     mortal,
     mortal_,
-    runMortal
+    runMortal,
+    doom
     ) where
 
 import Control.Object.Object
@@ -11,6 +12,8 @@ import Control.Applicative
 import Control.Monad.Trans.Either
 import Control.Monad
 import Control.Monad.Trans.Class
+import Data.Profunctor.Unsafe
+import Data.Void
 import Unsafe.Coerce
 
 -- | Object with a final result.
@@ -45,3 +48,6 @@ mortal_ :: Object f (EitherT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
+doom :: Monad m => EitherT a m Void -> m a
+doom = liftM (either id absurd) .# runEitherT
+{-# INLINE doom #-}
