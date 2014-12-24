@@ -3,17 +3,15 @@ module Control.Object.Mortal (
     Mortal(..),
     mortal,
     mortal_,
-    runMortal
+    runMortal,
+    immortal,
     ) where
 
 import Control.Object.Object
 import Control.Applicative
-import Control.Monad.Trans.Free
 import Control.Monad.Trans.Either
 import Control.Monad
 import Control.Monad.Trans.Class
-import Data.Profunctor.Unsafe
-import Data.Void
 import Unsafe.Coerce
 
 -- | Object with a final result.
@@ -24,13 +22,17 @@ newtype Mortal f g a = Mortal { unMortal :: Object f (EitherT a g) }
 
 instance (Functor m, Monad m) => Functor (Mortal f m) where
   fmap f (Mortal obj) = Mortal (obj @>>^ bimapEitherT f id)
+  {-# INLINE fmap #-}
 
 instance (Functor m, Monad m) => Applicative (Mortal f m) where
   pure = return
+  {-# INLINE pure #-}
   (<*>) = ap
+  {-# INLINE (<*>) #-}
 
 instance Monad m => Monad (Mortal f m) where
   return a = mortal $ const $ left a
+  {-# INLINE return #-}
   m >>= k = mortal $ \f -> lift (runMortal m f) >>= \r -> case r of
     Left a -> EitherT $ runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
@@ -47,3 +49,6 @@ runMortal = unsafeCoerce
 mortal_ :: Object f (EitherT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
+
+immortal :: Monad m => Object f m -> Mortal f m x
+immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')

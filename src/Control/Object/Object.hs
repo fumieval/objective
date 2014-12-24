@@ -34,7 +34,7 @@ objectTyCon :: TyCon
 #if __GLASGOW_HASKELL__ < 704
 objectTyCon = mkTyCon "Control.Object.Object"
 #else
-objectTyCon = mkTyCon3 "object" "Control.Object" "Object"
+objectTyCon = mkTyCon3 "objective" "Control.Object" "Object"
 #endif
 {-# NOINLINE objectTyCon #-}
 #endif
@@ -78,6 +78,13 @@ stateful h = go where
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
 infixr 1 @>>@
+
+-- | Reversed '(@>>@)'
+(@<<@) :: Functor h => Object g h -> Object f g -> Object f h
+(@<<@) = flip (@>>@)
+{-# INLINE (@<<@) #-}
+infixl 1 @<<@
+
 
 -- | Object-function composition
 (@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
