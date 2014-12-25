@@ -1,3 +1,4 @@
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types #-}
 module Control.Object.Mortal (
     Mortal(..),

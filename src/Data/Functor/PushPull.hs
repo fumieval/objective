@@ -1,3 +1,4 @@
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, DataKinds, TypeFamilies, TypeOperators #-}
 -----------------------------------------------------------------------------
 -- |

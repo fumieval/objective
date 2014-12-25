@@ -1,3 +1,4 @@
+{-# LANGUAGE Trustworthy #-}
 module Control.Object.Stream where
 
 import Data.Functor.Rep

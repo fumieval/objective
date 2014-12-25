@@ -1,3 +1,4 @@
+{-# LANGUAGE Trustworthy #-}
 module Control.Object.Process where
 import Control.Object.Object
 import Control.Arrow as A
