@@ -6,6 +6,7 @@ module Control.Object.Mortal (
     mortal_,
     runMortal,
     immortal,
+    reincarnation
     ) where
 
 import Control.Object.Object
@@ -53,3 +54,9 @@ mortal_ = Mortal
 
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
+
+reincarnation :: Monad m => (a -> Mortal f m a) -> a -> Object f m
+reincarnation g a0 = go (g a0) where
+  go m = Object $ \f -> runMortal m f >>= \r -> case r of
+    Left a -> runObject (go (g a)) f
+    Right (a, m') -> return (a, go m')
