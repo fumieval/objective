@@ -72,7 +72,7 @@ unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
 -- @stateful t s = t ^>>@ variable s@
 stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
 stateful h = go where
-  go s = Object $ \f -> liftM (fmap go) $ runStateT (h f) $! s
+  go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
 
 -- | Object-object composition

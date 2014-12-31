@@ -114,9 +114,9 @@ foldPP f = go where
     Pull cont -> pure (cont r, go r)
 {-# INLINE foldPP #-}
 
-(*-) :: IORef (Object f IO) -> f a -> IO a
+(*-) :: MonadIO m => IORef (Object f m) -> f a -> m a
 r *- f = do
-  obj <- readIORef r
+  obj <- liftIO $ readIORef r
   (a, obj') <- runObject obj f
-  writeIORef r obj'
+  liftIO $ writeIORef r obj'
   return a
