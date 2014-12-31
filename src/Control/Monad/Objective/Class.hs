@@ -38,6 +38,9 @@ class Monad b => ObjectiveBase b where
 
 type MonadObjective b m = (ObjectiveBase b, Elevate b m, Monad m)
 
+(.->) :: (Monad m, ObjectiveBase m) => Inst m f m -> f a -> m a
+(.->) = invoke id id
+
 (.-) :: (MonadObjective b m, Elevate g m) => Inst b f g -> f a -> m a
 (.-) = invoke elevate elevate
 {-# INLINE (.-) #-}

@@ -18,6 +18,7 @@ import Data.OpenUnion1.Clean
 import Data.Monoid
 import Data.Hashable
 import Data.Traversable as T
+import Data.IORef
 
 -- | Build an object using continuation passing style.
 oneshot :: (Functor f, Monad m) => (forall a. f (m a) -> m a) -> Object f m
@@ -112,3 +113,10 @@ foldPP f = go where
     Push a c -> let z = f a r in pure (c, z `seq` go z)
     Pull cont -> pure (cont r, go r)
 {-# INLINE foldPP #-}
+
+(*-) :: IORef (Object f IO) -> f a -> IO a
+r *- f = do
+  obj <- readIORef r
+  (a, obj') <- runObject obj f
+  writeIORef r obj'
+  return a
