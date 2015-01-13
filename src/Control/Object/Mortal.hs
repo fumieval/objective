@@ -40,7 +40,7 @@ instance Monad m => Monad (Mortal f m) where
     Right (x, m') -> return (x, m' >>= k)
 
 mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
-mortal f = unsafeCoerce f
+mortal f = Mortal (Object (fmap unsafeCoerce f))
 {-# INLINE mortal #-}
 
 runMortal :: Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
@@ -56,7 +56,8 @@ immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
 
 reincarnation :: Monad m => (a -> Mortal f m a) -> a -> Object f m
-reincarnation g a0 = go (g a0) where
+reincarnation g = go . g where
   go m = Object $ \f -> runMortal m f >>= \r -> case r of
     Left a -> runObject (go (g a)) f
     Right (a, m') -> return (a, go m')
+{-# INLINE reincarnation #-}

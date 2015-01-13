@@ -19,6 +19,8 @@ import Data.Monoid
 import Data.Hashable
 import Data.Traversable as T
 import Data.IORef
+import Data.Profunctor.Unsafe
+import Control.Monad.IO.Class
 
 -- | Build an object using continuation passing style.
 oneshot :: (Functor f, Monad m) => (forall a. f (m a) -> m a) -> Object f m
@@ -32,6 +34,7 @@ flyweight f = go Map.empty where
   go m = Object $ \(Request k cont) -> case Map.lookup k m of
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ Map.insert k a m)
+{-# INLINE flyweight #-}
 
 -- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
 flyweight' :: (Monad m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
@@ -39,16 +42,19 @@ flyweight' f = go HM.empty where
   go m = Object $ \(Request k cont) -> case HM.lookup k m of
     Just a -> return (cont a, go m)
     Nothing -> f k >>= \a -> return (cont a, go $ HM.insert k a m)
+{-# INLINE flyweight' #-}
 
 animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
 animate f = go 0 where
   go t = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f t
+{-# INLINE animate #-}
 
 transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m
 transit len f = go 0 where
   go t
     | t >= len = Object $ const empty
     | otherwise = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f (t / len)
+{-# INLINE transit #-}
 
 announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
 announce f = do
@@ -120,3 +126,7 @@ r *- f = do
   (a, obj') <- runObject obj f
   liftIO $ writeIORef r obj'
   return a
+
+invoke :: f a -> StateT (Object f m) m a
+invoke = StateT #. flip runObject
+{-# INLINE invoke #-}
