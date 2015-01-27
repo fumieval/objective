@@ -25,6 +25,7 @@ import Control.Object.Object
 import Control.Elevator
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Operational.Mini
+import Data.Functor.Identity
 import Control.Monad
 
 type Inst' f g = Inst g f g
@@ -56,10 +57,9 @@ infixr 3 .^
 -- | (.^) for StateT
 (.&) :: (MonadObjective b m, Elevate g m, Elevate (State s) f) => Inst b f g -> StateT s m a -> m a
 i .& m = do
-  s <- i .^ get
+  s <- i .^ StateT (\s -> Identity (s, s))
   (a, s') <- runStateT m s
-  i .^ put s'
-  return a
+  i .^ StateT (\_ -> Identity (a, s'))
 
 infixr 3 .&
 

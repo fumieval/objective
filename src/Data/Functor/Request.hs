@@ -14,10 +14,10 @@
 module Data.Functor.Request where
 import Data.Typeable
 import Control.Elevator
+import Data.Extensible
 import Control.Monad
 import Data.Monoid
 import Control.Applicative
-import Data.OpenUnion1.Clean
 import Data.Profunctor
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
@@ -36,8 +36,8 @@ instance Monoid a => Applicative (Request a b) where
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
 
 instance Tower (Request a b) where
-  type Floors (Request a b) = Empty
-  toLoft = exhaust
+  type Floors (Request a b) = '[]
+  stairs = Nil
 
 request :: (Elevate (Request a b) f) => a -> f b
 request a = elevate (Request a id)

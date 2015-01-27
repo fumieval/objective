@@ -1,5 +1,5 @@
 {-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE Rank2Types, CPP, TypeOperators #-}
+{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 #endif
@@ -12,9 +12,10 @@ import Control.Monad.Operational.Mini
 import qualified Control.Monad.Trans.Free as T
 import qualified Control.Monad.Trans.Operational.Mini as T
 import Control.Monad.Trans.State.Strict
-import Data.OpenUnion1.Clean
 import Data.Typeable
 import Control.Applicative
+import Data.Extensible
+import Control.Arrow (first)
 
 -- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -109,22 +110,13 @@ a @||@ b = Object $ \(Coproduct r) -> case r of
   Right g -> fmap (fmap (a@||@)) (runObject b g)
 infixr 2 @||@
 
--- | An object that won't accept any messages.
-loner :: Functor f => Object Nil f
-loner = liftO exhaust
-
--- | Extend an object by another independent object.
-(@|>@) :: Functor g => Object f g -> Object (Union s) g -> Object (f |> Union s) g
-p @|>@ q = Object $ fmap (fmap (@|>@q)) . runObject p ||> fmap (fmap (p @|>@)) . runObject q
-infixr 3 @|>@
-
 -- | Build a stateful object, sharing out the state.
-sharing :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object (State s |> f |> Nil) m
+sharing :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object (Union '[State s, f]) m
 sharing m = go where
-  go s = Object $ \k -> liftM (fmap go) $ ($k)
-    $ (\n -> return $ runState n s)
-    ||> (\e -> runStateT (m e) s)
-    ||> exhaust
+  go s = Object $ \k -> liftM (fmap go) $ caseOf (getUnion k)
+    $ (\n cont -> return $ first cont $ runState n s)
+    <$?~ (\e cont -> first cont `liftM` runStateT (m e) s)
+    <$?~ Nil
 {-# INLINE sharing #-}
 
 (@!) :: Monad m => Object e m -> ReifiedProgram e a -> m (a, Object e m)

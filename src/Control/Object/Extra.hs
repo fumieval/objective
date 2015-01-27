@@ -1,7 +1,6 @@
 {-# LANGUAGE Rank2Types, TypeOperators, FlexibleContexts, ConstraintKinds #-}
 module Control.Object.Extra where
 import Control.Object.Object
-import Control.Object.Mortal
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict as Map
 import Data.Witherable
@@ -10,11 +9,9 @@ import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 import Control.Monad
-import Control.Elevator
 import Data.Functor.Request
 import Data.Functor.PushPull
 import Control.Applicative
-import Data.OpenUnion1.Clean
 import Data.Monoid
 import Data.Hashable
 import Data.Traversable as T
@@ -56,49 +53,24 @@ transit len f = go 0 where
     | otherwise = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f (t / len)
 {-# INLINE transit #-}
 
-announce :: (T.Traversable t, Monad m, Elevate (State (t (Object f g))) m, Elevate g m) => f a -> m [a]
-announce f = do
-  t <- elevate get
-  (t', Endo e) <- runWriterT $ T.mapM (\obj -> (lift . elevate) (runObject obj f)
+announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
+announce f = StateT $ \t -> do
+  (t', Endo e) <- runWriterT $ T.mapM (\obj -> lift (runObject obj f)
       >>= \(x, obj') -> writer (obj', Endo (x:))) t
-  elevate (put t')
-  return (e [])
+  return (e [], t')
 
-announceMaybe :: (Witherable t
-    , Monad m
-    , Elevate (State (t (Object f Maybe))) m) => f a -> m [a]
-announceMaybe f = elevate $ state
+announceMaybe :: (Witherable t, Monad m) => f a -> StateT (t (Object f Maybe)) m [a]
+announceMaybe f = StateT
   $ \t -> let (t', Endo e) = runWriter
                 $ witherM (\obj -> case runObject obj f of
                   Just (x, obj') -> lift $ writer (obj', Endo (x:))
-                  Nothing -> mzero) t in (e [], t')
+                  Nothing -> mzero) t in return (e [], t')
 
-announceMaybeT :: (Witherable t
-  , Monad m
-  , State (t (Object f (MaybeT g))) ∈ Floors1 m
-  , g ∈ Floors1 m
-  , Tower m) => f a -> m [a]
-announceMaybeT f = do
-  t <- elevate get
-  (t', Endo e) <- runWriterT $ witherM (\obj -> mapMaybeT (lift . elevate) (runObject obj f)
+announceMaybeT :: (Witherable t, Monad m) => f a -> StateT (t (Object f (MaybeT m))) m [a]
+announceMaybeT f = StateT $ \t -> do
+  (t', Endo e) <- runWriterT $ witherM (\obj -> mapMaybeT lift (runObject obj f)
       >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
-  elevate (put t')
-  return (e [])
-
-announceMortal :: (Witherable t
-  , Monad m
-  , State (t (Mortal f g ())) ∈ Floors1 m
-  , g ∈ Floors1 m
-  , Tower m) => f a -> m [a]
-announceMortal f = do
-  t <- elevate get
-  (t', Endo e) <- runWriterT $ witherM (\obj -> MaybeT (lift $ liftM is $ elevate $ runMortal obj f)
-      >>= \(x, obj') -> lift (writer (obj', Endo (x:)))) t
-  elevate (put t')
-  return (e [])
-  where
-    is (Left ()) = Nothing
-    is (Right a) = Just a
+  return (e [], t')
 
 type Variable s = forall m. Monad m => Object (StateT s m) m
 

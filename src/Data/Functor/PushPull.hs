@@ -1,5 +1,5 @@
 {-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, DataKinds, TypeFamilies, TypeOperators #-}
+{-# LANGUAGE ScopedTypeVariables, Rank2Types, DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, DataKinds, TypeFamilies, TypeOperators #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Functor.PushPull
@@ -14,10 +14,10 @@
 module Data.Functor.PushPull where
 import Data.Typeable
 import Control.Elevator
-import Data.OpenUnion1.Clean
 import Control.Applicative
 import Data.Profunctor
 import Data.Functor.Day
+import Data.Extensible
 
 -- | The type for asynchronous input/output.
 data PushPull a b r = Push a r | Pull (b -> r) deriving (Functor, Typeable)
@@ -29,18 +29,12 @@ instance Profunctor (PushPull a) where
   dimap f g (Pull br) = Pull (dimap f g br)
 
 instance Tower (PushPull a b) where
-  type Floors (PushPull a b) = (,) a :> (->) b :> Empty
-  toLoft = uncurry Push ||> Pull ||> exhaust
+  type Floors (PushPull a b) = '[(,) a, (->) b]
+  stairs = uncurry Push `rung` Pull `rung` Nil
 
 mapPush :: (a -> a') -> PushPull a b r -> PushPull a' b r
 mapPush f (Push a r) = Push (f a) r
 mapPush _ (Pull br) = Pull br
-
-push :: (Elevate (PushPull a b) f) => a -> f ()
-push a = elevate (Push a ())
-
-pull :: (Elevate (PushPull a b) f) => f b
-pull = elevate (Pull id)
 
 bipush :: (i -> (a, c)) -> (b -> d -> o) -> PushPull i o r -> Day (PushPull a b) (PushPull c d) r
 bipush f g = go where

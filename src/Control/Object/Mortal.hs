@@ -5,6 +5,7 @@ module Control.Object.Mortal (
     mortal,
     mortal_,
     runMortal,
+    runMortal',
     immortal,
     reincarnation
     ) where
@@ -35,17 +36,21 @@ instance (Functor m, Monad m) => Applicative (Mortal f m) where
 instance Monad m => Monad (Mortal f m) where
   return a = mortal $ const $ left a
   {-# INLINE return #-}
-  m >>= k = mortal $ \f -> lift (runMortal m f) >>= \r -> case r of
-    Left a -> EitherT $ runMortal (k a) f
+  m >>= k = mortal $ \f -> lift (runMortal' m f) >>= \r -> case r of
+    Left a -> runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
 
 mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = Mortal (Object (fmap unsafeCoerce f))
 {-# INLINE mortal #-}
 
-runMortal :: Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
+runMortal :: Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
 runMortal = unsafeCoerce
 {-# INLINE runMortal #-}
+
+runMortal' :: Mortal f m a -> f x -> m (Either a (x, Mortal f m a))
+runMortal' = unsafeCoerce
+{-# INLINE runMortal' #-}
 
 -- | Restricted 'Mortal' constuctor, which can be applied to 'transit', 'fromFoldable' without ambiguousness.
 mortal_ :: Object f (EitherT () g) -> Mortal f g ()
@@ -57,7 +62,7 @@ immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return
 
 reincarnation :: Monad m => (a -> Mortal f m a) -> a -> Object f m
 reincarnation g = go . g where
-  go m = Object $ \f -> runMortal m f >>= \r -> case r of
+  go m = Object $ \f -> runMortal' m f >>= \r -> case r of
     Left a -> runObject (go (g a)) f
     Right (a, m') -> return (a, go m')
 {-# INLINE reincarnation #-}
