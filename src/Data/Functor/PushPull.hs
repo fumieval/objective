@@ -32,6 +32,12 @@ instance Tower (PushPull a b) where
   type Floors (PushPull a b) = '[(,) a, (->) b]
   stairs = uncurry Push `rung` Pull `rung` Nil
 
+push :: Elevate ((,) a) f => a -> f ()
+push a = elevate (a, ())
+
+pull :: Elevate ((->) a) f => f a
+pull = elevate id
+
 mapPush :: (a -> a') -> PushPull a b r -> PushPull a' b r
 mapPush f (Push a r) = Push (f a) r
 mapPush _ (Pull br) = Pull br
