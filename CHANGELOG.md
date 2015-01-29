@@ -1,3 +1,7 @@
+0.6.5
+----
+* Supported `elevator >= 0.2`.
+
 0.6.3.1
 ----
 * Reverted the fixity.

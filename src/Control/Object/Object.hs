@@ -87,7 +87,6 @@ infixr 1 @>>@
 {-# INLINE (@<<@) #-}
 infixl 1 @<<@
 
-
 -- | Object-function composition
 (@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
 m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
