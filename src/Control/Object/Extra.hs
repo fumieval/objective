@@ -99,6 +99,6 @@ r *- f = do
   liftIO $ writeIORef r obj'
   return a
 
-invoke :: f a -> StateT (Object f m) m a
-invoke = StateT #. flip runObject
-{-# INLINE invoke #-}
+invokeState :: f a -> StateT (Object f m) m a
+invokeState = StateT #. flip runObject
+{-# INLINE invokeState #-}

@@ -35,12 +35,17 @@ class Monad b => ObjectiveBase b where
   type InstOf b o :: *
   type InstOf b (Object f g) = Inst b f g
   new :: Object f g -> b (Inst b f g)
+  new = new
   invoke :: Monad m => (forall x. b x -> m x) -> (forall x. g x -> m x) -> Inst b f g -> f a -> m a
+
+newSettle :: ObjectiveBase g => Object f g -> g (Inst g f g)
+newSettle = new
 
 type MonadObjective b m = (ObjectiveBase b, Elevate b m, Monad m)
 
 (.->) :: (Monad m, ObjectiveBase m) => Inst m f m -> f a -> m a
 (.->) = invoke id id
+{-# INLINE (.->) #-}
 
 (.-) :: (MonadObjective b m, Elevate g m) => Inst b f g -> f a -> m a
 (.-) = invoke elevate elevate
@@ -65,6 +70,7 @@ infixr 3 .&
 
 (.!) :: (MonadObjective b m, Elevate g m) => Inst b f g -> Program f a -> m a
 (.!) i = interpret (i.-)
+{-# INLINE (.!) #-}
 
 infixr 3 .!
 
@@ -72,3 +78,4 @@ infixr 3 .!
 -- @invocation i = liftO (i.-)@
 invocation :: (MonadObjective b m, Elevate g m) => Inst b f g -> Object f m
 invocation i = Object $ liftM (\a -> (a, invocation i)). (i.-)
+{-# INLINE invocation #-}
