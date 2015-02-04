@@ -40,6 +40,9 @@ instance Monad m => Monad (Mortal f m) where
     Left a -> runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
 
+instance MonadTrans (Mortal f) where
+  lift m = mortal $ const $ EitherT $ liftM Left m
+
 mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = Mortal (Object (fmap unsafeCoerce f))
 {-# INLINE mortal #-}
