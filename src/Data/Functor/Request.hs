@@ -19,6 +19,7 @@ import Data.Profunctor
 import Control.Object.Object
 import qualified Data.HashMap.Strict as HM
 import Data.Hashable
+import Control.Arrow
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
@@ -37,6 +38,11 @@ instance Monoid a => Applicative (Request a b) where
 
 request :: a -> Request a b b
 request a = Request a id
+{-# INLINE request #-}
+
+handles :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
+handles f = Object $ \(Request a cont) -> first cont <$> f a
+{-# INLINE handles #-}
 
 -- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
 flyweight :: (Applicative m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m

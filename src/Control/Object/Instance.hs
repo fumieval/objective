@@ -25,6 +25,8 @@ invoke m (InstRmap i t) f = invoke (m . t) i f
 
 (.-) :: MonadIO m => Instance f m -> f a -> m a
 (.-) = invoke id
+{-# INLINE (.-) #-}
 
 new :: MonadIO m => Object f g -> m (Instance f g)
 new = liftIO . liftM InstRef . newMVar
+{-# INLINE new #-}
