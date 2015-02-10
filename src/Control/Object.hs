@@ -17,7 +17,7 @@
 module Control.Object
   ( module Control.Object.Object,
     module Control.Object.Mortal,
-    module Control.Object.Extra,
+    module Control.Object.Suited,
     module Control.Object.Instance,
     module Data.Functor.Request,
   ) where
@@ -25,5 +25,5 @@ module Control.Object
 import Control.Object.Object
 import Control.Object.Mortal
 import Control.Object.Instance
-import Control.Object.Extra
+import Control.Object.Suited
 import Data.Functor.Request

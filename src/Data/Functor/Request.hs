@@ -13,10 +13,12 @@
 -----------------------------------------------------------------------------
 module Data.Functor.Request where
 import Data.Typeable
-import Control.Monad
 import Data.Monoid
 import Control.Applicative
 import Data.Profunctor
+import Control.Object.Object
+import qualified Data.HashMap.Strict as HM
+import Data.Hashable
 
 -- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
@@ -36,8 +38,22 @@ instance Monoid a => Applicative (Request a b) where
 request :: a -> Request a b b
 request a = Request a id
 
-accept :: Functor f => (a -> f b) -> Request a b r -> f r
-accept f (Request a br) = fmap br (f a)
+-- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
+flyweight :: (Applicative m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
+flyweight f = go HM.empty where
+  go m = Object $ \(Request k cont) -> case HM.lookup k m of
+    Just a -> pure (cont a, go m)
+    Nothing -> (\a -> (cont a, go $ HM.insert k a m)) <$> f k
+{-# INLINE flyweight #-}
 
-acceptM :: Monad m => (a -> m b) -> Request a b r -> m r
-acceptM f (Request a br) = liftM br (f a)
+animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
+animate f = go 0 where
+  go t = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f t
+{-# INLINE animate #-}
+
+transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m
+transit len f = go 0 where
+  go t
+    | t >= len = Object $ const empty
+    | otherwise = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f (t / len)
+{-# INLINE transit #-}

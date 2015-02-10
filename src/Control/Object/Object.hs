@@ -8,6 +8,10 @@ import Data.Typeable
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
+import Data.Traversable as T
+import Control.Monad.Trans.Writer.Strict
+import Control.Monad.Trans.Class
+import Data.Monoid
 
 -- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -80,3 +84,12 @@ iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' c
 iterative :: (Monad m) => Object f m -> Object (Free f) m
 iterative = unfoldOM iterObject
 
+-- | A mutable variable.
+variable :: Monad m => s -> Object (StateT s m) m
+variable s = Object $ \m -> liftM (fmap variable) $ runStateT m s
+
+announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
+announce f = StateT $ \t -> do
+  (t', Endo e) <- runWriterT $ T.mapM (\obj -> lift (runObject obj f)
+      >>= \(x, obj') -> writer (obj', Endo (x:))) t
+  return (e [], t')

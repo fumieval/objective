@@ -22,7 +22,6 @@ library
       , Control.Object.Instance
       , Control.Object.Mortal
       , Control.Object.Suited
-      , Control.Object.Extra
       , Data.Functor.Request
   -- other-modules:
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
@@ -30,7 +29,6 @@ library
     , extensible >= 0.2.6 && <0.3
     , containers
     , free >= 4.4 && <5
-    , kan-extensions >= 4.1 && <5
     , unordered-containers
     , hashable >= 1.2 && <1.4
     , profunctors >= 4.0 && <5
