@@ -18,16 +18,12 @@ module Control.Object
   ( module Control.Object.Object,
     module Control.Object.Stream,
     module Control.Object.Mortal,
-    module Control.Object.Process,
     module Control.Object.Extra,
     module Data.Functor.Request,
-    module Data.Functor.PushPull
   ) where
 
 import Control.Object.Object
 import Control.Object.Stream
 import Control.Object.Mortal
-import Control.Object.Process
 import Control.Object.Extra
 import Data.Functor.Request
-import Data.Functor.PushPull
