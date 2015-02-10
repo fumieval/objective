@@ -1,11 +1,13 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE LambdaCase #-}
 module Control.Object.Mortal (
     Mortal(..),
     mortal,
     mortal_,
     runMortal,
-    immortal
+    immortal,
+    apprise
     ) where
 
 import Control.Object.Object
@@ -13,6 +15,10 @@ import Control.Applicative
 import Control.Monad.Trans.Either
 import Control.Monad
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.Writer.Strict
+import Data.Monoid
+import Data.Witherable
 import Unsafe.Coerce
 
 -- | Object with a final result.
@@ -40,6 +46,7 @@ instance Monad m => Monad (Mortal f m) where
 
 instance MonadTrans (Mortal f) where
   lift m = mortal $ const $ EitherT $ liftM Left m
+  {-# INLINE lift #-}
 
 mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = Mortal (Object (fmap unsafeCoerce f))
@@ -56,3 +63,11 @@ mortal_ = Mortal
 
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
+
+apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
+apprise f = StateT $ \t -> do
+  (t', (Endo ba, Endo br)) <- runWriterT $ flip wither t
+    $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
+      Left r -> writer (Nothing, (mempty, Endo (r:)))
+      Right (x, obj') -> writer (Just obj', (Endo (x:), mempty))
+  return ((ba [], br []), t')

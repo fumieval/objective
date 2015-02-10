@@ -34,6 +34,7 @@ library
     , profunctors >= 4.0 && <5
     , either
     , void
+    , witherable
     , transformers >= 0.3 && <0.5
   ghc-options: -Wall
   hs-source-dirs:      src

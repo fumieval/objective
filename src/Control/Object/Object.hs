@@ -9,6 +9,7 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
 import Data.Traversable as T
+import Control.Monad.Trans.Either
 import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.Class
 import Data.Monoid
