@@ -57,10 +57,3 @@ mortal_ = Mortal
 
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
-
-reincarnation :: Monad m => (a -> Mortal f m a) -> a -> Object f m
-reincarnation g = go . g where
-  go m = Object $ \f -> runEitherT (runMortal m f) >>= \r -> case r of
-    Left a -> runObject (go (g a)) f
-    Right (a, m') -> return (a, go m')
-{-# INLINE reincarnation #-}

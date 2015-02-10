@@ -35,6 +35,7 @@ library
     , kan-extensions >= 4.1 && <5
     , unordered-containers
     , hashable >= 1.2 && <1.4
+    , profunctors >= 4.0 && <5
     , either
     , void
     , adjunctions >= 4.0 && <5
