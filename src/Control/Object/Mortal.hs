@@ -5,8 +5,7 @@ module Control.Object.Mortal (
     mortal,
     mortal_,
     runMortal,
-    immortal,
-    reincarnation
+    immortal
     ) where
 
 import Control.Object.Object
