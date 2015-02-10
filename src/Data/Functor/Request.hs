@@ -13,8 +13,6 @@
 -----------------------------------------------------------------------------
 module Data.Functor.Request where
 import Data.Typeable
-import Control.Elevator
-import Data.Extensible
 import Control.Monad
 import Data.Monoid
 import Control.Applicative
@@ -35,12 +33,8 @@ instance Monoid a => Applicative (Request a b) where
   pure a = Request mempty (const a)
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
 
-instance Tower (Request a b) where
-  type Floors (Request a b) = '[]
-  stairs = Nil
-
-request :: (Elevate (Request a b) f) => a -> f b
-request a = elevate (Request a id)
+request :: a -> Request a b b
+request a = Request a id
 
 accept :: Functor f => (a -> f b) -> Request a b r -> f r
 accept f (Request a br) = fmap br (f a)

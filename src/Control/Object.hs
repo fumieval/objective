@@ -16,14 +16,14 @@
 -----------------------------------------------------------------------------
 module Control.Object
   ( module Control.Object.Object,
-    module Control.Object.Stream,
     module Control.Object.Mortal,
     module Control.Object.Extra,
+    module Control.Object.Instance,
     module Data.Functor.Request,
   ) where
 
 import Control.Object.Object
-import Control.Object.Stream
 import Control.Object.Mortal
+import Control.Object.Instance
 import Control.Object.Extra
 import Data.Functor.Request

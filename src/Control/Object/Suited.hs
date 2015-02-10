@@ -13,7 +13,6 @@
 -----------------------------------------------------------------------------
 module Control.Object.Suited (Suited(..), guest) where
 import Control.Object.Object
-import Data.Functor.Coproduct
 import Data.Extensible
 import Control.Monad.Free
 import Data.Proxy
@@ -27,9 +26,6 @@ newtype Flipped f a b = Flipped { unFlipped :: f b a }
 
 instance (Functor g, Forall (Suited g) fs) => Suited g (Union fs) where
   suited = magazine $ generateFor (Proxy :: Proxy (Suited g)) $ const (Flipped suited)
-
-instance (Functor h, Suited h f, Suited h g) => Suited h (Coproduct f g) where
-  suited = suited @||@ suited
 
 instance (Monad g, Suited g f) => Suited g (Free f) where
   suited = iterative suited

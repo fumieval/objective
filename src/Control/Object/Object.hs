@@ -5,7 +5,6 @@
 #endif
 module Control.Object.Object where
 import Data.Typeable
-import Data.Functor.Coproduct
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
@@ -21,19 +20,25 @@ import Control.Monad
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
   deriving (Typeable)
 
-class HArrow k where
-  echo :: Functor a => k a a
-  (@>>@) :: Functor c => k a b -> k b c -> k a c
-  trans :: Functor b => (forall x. a x -> b x) -> k a b
-  (@||@) :: Functor c => k a c -> k b c -> k (Coproduct a b) c
+infixr 1 ^>>@
+infixr 1 @>>^
 
-instance HArrow Object where
-  echo = Object $ fmap (,echo)
-  Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
-  trans f = go where go = Object $ fmap (\x -> (x, go)) . f
-  a @||@ b = Object $ \(Coproduct r) -> case r of
-    Left f -> fmap (fmap (@||@b)) (runObject a f)
-    Right g -> fmap (fmap (a@||@)) (runObject b g)
+class HProfunctor k where
+  (^>>@) :: Functor h => (forall x. f x -> g x) -> k g h -> k f h
+  (@>>^) :: Functor h => k f g -> (forall x. g x -> h x) -> k f h
+
+instance HProfunctor Object where
+  m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
+  f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
+
+echo :: Functor f => Object f f
+echo = Object $ fmap (,echo)
+
+(@>>@) :: Functor h => Object f g -> Object g h -> Object f h
+Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
+
+liftO :: Functor g => (forall x. f x -> g x) -> Object f g
+liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
 
 (@-) :: Object f g -> f x -> g (x, Object f g)
 (@-) = runObject
@@ -67,16 +72,6 @@ infixr 1 @>>@
 (@<<@) = flip (@>>@)
 {-# INLINE (@<<@) #-}
 infixl 1 @<<@
-
--- | object-trans composition
-(@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
-m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
-infixr 1 @>>^
-
--- | trans-object composition
-(^>>@) :: Functor h => (forall x. f x -> g x) -> Object g h -> Object f h
-f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
-infixr 1 ^>>@
 
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
