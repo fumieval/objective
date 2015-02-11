@@ -25,6 +25,11 @@ import Data.Monoid
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
   deriving (Typeable)
 
+(@-) :: Object f g -> f x -> g (x, Object f g)
+(@-) = runObject
+{-# INLINE (@-) #-}
+infixr 3 @-
+
 infixr 1 ^>>@
 infixr 1 @>>^
 
@@ -34,21 +39,26 @@ class HProfunctor k where
 
 instance HProfunctor Object where
   m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
+  {-# INLINE (@>>^) #-}
   f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
+  {-# INLINE (^>>@) #-}
 
 echo :: Functor f => Object f f
 echo = Object $ fmap (,echo)
 
-(@>>@) :: Functor h => Object f g -> Object g h -> Object f h
-Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
-
 liftO :: Functor g => (forall x. f x -> g x) -> Object f g
 liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
+{-# INLINE liftO #-}
 
-(@-) :: Object f g -> f x -> g (x, Object f g)
-(@-) = runObject
-{-# INLINE (@-) #-}
-infixr 3 @-
+(@>>@) :: Functor h => Object f g -> Object g h -> Object f h
+Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
+infixr 1 @>>@
+
+-- | Reversed '(@>>@)'
+(@<<@) :: Functor h => Object g h -> Object f g -> Object f h
+(@<<@) = flip (@>>@)
+{-# INLINE (@<<@) #-}
+infixl 1 @<<@
 
 unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
 unfoldO h = go where go r = Object $ fmap (fmap go) . h r
@@ -70,20 +80,13 @@ stateful h = go where
   go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
 
-infixr 1 @>>@
-
--- | Reversed '(@>>@)'
-(@<<@) :: Functor h => Object g h -> Object f g -> Object f h
-(@<<@) = flip (@>>@)
-{-# INLINE (@<<@) #-}
-infixl 1 @<<@
-
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
 iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
 
 iterative :: (Monad m) => Object f m -> Object (Free f) m
 iterative = unfoldOM iterObject
+{-# INLINE iterative #-}
 
 -- | A mutable variable.
 variable :: Monad m => s -> Object (StateT s m) m
