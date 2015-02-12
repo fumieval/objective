@@ -9,7 +9,6 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
 import Data.Traversable as T
-import Control.Monad.Trans.Either
 import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.Class
 import Data.Monoid
@@ -25,6 +24,7 @@ import Data.Monoid
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
   deriving (Typeable)
 
+-- | An alias for 'runObject'
 (@-) :: Object f g -> f x -> g (x, Object f g)
 (@-) = runObject
 {-# INLINE (@-) #-}
@@ -43,13 +43,16 @@ instance HProfunctor Object where
   f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
   {-# INLINE (^>>@) #-}
 
+-- | The trivial object
 echo :: Functor f => Object f f
 echo = Object $ fmap (,echo)
 
+-- | Lift natural transformation into an object
 liftO :: Functor g => (forall x. f x -> g x) -> Object f g
 liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
 {-# INLINE liftO #-}
 
+-- | Object composition
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
 infixr 1 @>>@
@@ -60,14 +63,14 @@ infixr 1 @>>@
 {-# INLINE (@<<@) #-}
 infixl 1 @<<@
 
+-- | The unwrapped analog of 'stateful'
+--     @unfoldO runObject = id@
+--     @unfoldO iterObject = iterable@
 unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
 unfoldO h = go where go r = Object $ fmap (fmap go) . h r
 {-# INLINE unfoldO #-}
 
--- | The unwrapped analog of 'stateful'
---     @unfoldO runObject = id@
---     @unfoldO iterObject = iterable@
-
+-- | Same as 'unfoldO' but requires 'Monad' instead
 unfoldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
 unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
 {-# INLINE unfoldOM #-}
@@ -80,10 +83,12 @@ stateful h = go where
   go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
 
+-- | Cascading
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
 iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
 
+-- | Objects can consume free monads
 iterative :: (Monad m) => Object f m -> Object (Free f) m
 iterative = unfoldOM iterObject
 {-# INLINE iterative #-}
@@ -92,6 +97,7 @@ iterative = unfoldOM iterObject
 variable :: Monad m => s -> Object (StateT s m) m
 variable s = Object $ \m -> liftM (fmap variable) $ runStateT m s
 
+-- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
 announce f = StateT $ \t -> do
   (t', Endo e) <- runWriterT $ T.mapM (\obj -> lift (runObject obj f)

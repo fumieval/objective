@@ -48,10 +48,12 @@ instance MonadTrans (Mortal f) where
   lift m = mortal $ const $ EitherT $ liftM Left m
   {-# INLINE lift #-}
 
+-- | Construct a mortal in a 'Object' construction manner.
 mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = Mortal (Object (fmap unsafeCoerce f))
 {-# INLINE mortal #-}
 
+-- | Send a message to a mortal.
 runMortal :: Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
 runMortal = unsafeCoerce
 {-# INLINE runMortal #-}
@@ -61,9 +63,11 @@ mortal_ :: Object f (EitherT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
+-- | Turn an immortal into a mortal with eternal life.
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
 
+-- | Send a message to mortals in a container.
 apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
 apprise f = StateT $ \t -> do
   (t', (Endo ba, Endo br)) <- runWriterT $ flip wither t

@@ -21,12 +21,10 @@ library
       , Control.Object.Object
       , Control.Object.Instance
       , Control.Object.Mortal
-      , Control.Object.Suited
       , Data.Functor.Request
   -- other-modules:
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
   build-depends:       base >=4.5 && <5
-    , extensible >= 0.2.6 && <0.3
     , containers
     , free >= 4.4 && <5
     , unordered-containers
