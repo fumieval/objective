@@ -58,7 +58,7 @@ runMortal :: Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
 runMortal = unsafeCoerce
 {-# INLINE runMortal #-}
 
--- | Restricted 'Mortal' constuctor, which can be applied to 'transit', 'fromFoldable' without ambiguousness.
+-- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.
 mortal_ :: Object f (EitherT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
