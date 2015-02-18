@@ -58,8 +58,8 @@ animate f = go 0 where
 {-# INLINE animate #-}
 
 transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m
-transit len f = go 0 where
+transit len f = animate go where
   go t
-    | t >= len = Object $ const empty
-    | otherwise = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f (t / len)
+    | t >= len = empty
+    | otherwise = f (t / len)
 {-# INLINE transit #-}
