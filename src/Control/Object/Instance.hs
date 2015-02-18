@@ -34,3 +34,8 @@ invoke m (InstRmap i t) f = invoke (m . t) i f
 new :: MonadIO m => Object f g -> m (Instance f g)
 new = liftIO . liftM InstRef . newMVar
 {-# INLINE new #-}
+
+-- | Create a new instance, having it sitting on the current environment.
+newSettle :: MonadIO m => Object f m -> m (Instance f m)
+newSettle = new
+{-# INLINE newSettle #-}
