@@ -34,7 +34,9 @@ instance Profunctor (Request a) where
 
 instance Monoid a => Applicative (Request a b) where
   pure a = Request mempty (const a)
+  {-# INLINE pure #-}
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
+  {-# INLINE (<*>) #-}
 
 request :: a -> Request a b b
 request a = Request a id

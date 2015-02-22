@@ -14,7 +14,9 @@ data Instance f g where
 
 instance HProfunctor Instance where
   (^>>@) = InstLmap
+  {-# INLINE (^>>@) #-}
   (@>>^) = InstRmap
+  {-# INLINE (@>>^) #-}
 
 -- | Invoke a method with an explicit landing function.
 invokeOn :: MonadIO m => (forall x. g x -> m x) -> Instance f g -> f a -> m a
