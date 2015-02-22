@@ -1,13 +1,14 @@
 {-# LANGUAGE GADTs, Rank2Types #-}
 module Control.Object.Instance where
-import Control.Concurrent.MVar
+import Control.Concurrent.STM.TMVar
+import Control.Monad.STM
 import Control.Object.Object
 import Control.Monad.IO.Class
 import Control.Monad
 
 -- | MVar-based instance
 data Instance f g where
-  InstRef :: MVar (Object f g) -> Instance f g
+  InstRef :: TMVar (Object f g) -> Instance f g
   InstLmap :: (forall x. f x -> g x) -> Instance g h -> Instance f h
   InstRmap :: Instance f g -> (forall x. g x -> h x) -> Instance f h
 
@@ -16,27 +17,48 @@ instance HProfunctor Instance where
   (@>>^) = InstRmap
 
 -- | Invoke a method with an explicit landing function.
-invoke :: MonadIO m => (forall x. g x -> m x) -> Instance f g -> f a -> m a
-invoke m (InstRef v) f = do
-  obj <- liftIO (takeMVar v)
+invokeOn :: MonadIO m => (forall x. g x -> m x) -> Instance f g -> f a -> m a
+invokeOn m (InstRef v) f = do
+  obj <- liftIO $ atomically $ takeTMVar v
   (a, obj') <- m (runObject obj f)
-  liftIO $ putMVar v obj'
+  liftIO $ atomically $ putTMVar v obj'
   return a
-invoke m (InstLmap t i) f = invoke m i (t f)
-invoke m (InstRmap i t) f = invoke (m . t) i f
+invokeOn m (InstLmap t i) f = invokeOn m i (t f)
+invokeOn m (InstRmap i t) f = invokeOn (m . t) i f
+
+-- | Invoke a method with an explicit landing function.
+invokeOnSTM :: (forall x. g x -> STM x) -> Instance f g -> f a -> STM a
+invokeOnSTM m (InstRef v) f = do
+  obj <- takeTMVar v
+  (a, obj') <- m (runObject obj f)
+  putTMVar v obj'
+  return a
+invokeOnSTM m (InstLmap t i) f = invokeOnSTM m i (t f)
+invokeOnSTM m (InstRmap i t) f = invokeOnSTM (m . t) i f
+
+-- | Invoke a method, atomically.
+(..-) :: Instance f STM -> f a -> STM a
+(..-) i = invokeOnSTM id i
+{-# INLINE (..-) #-}
+infixr 3 ..-
 
 -- | Invoke a method.
 (.-) :: MonadIO m => Instance f m -> f a -> m a
-(.-) = invoke id
+(.-) = invokeOn id
 {-# INLINE (.-) #-}
 infixr 3 .-
 
 -- | Create a new instance.
 new :: MonadIO m => Object f g -> m (Instance f g)
-new = liftIO . liftM InstRef . newMVar
+new = liftIO . atomically . newSTM
 {-# INLINE new #-}
 
 -- | Create a new instance, having it sitting on the current environment.
 newSettle :: MonadIO m => Object f m -> m (Instance f m)
 newSettle = new
 {-# INLINE newSettle #-}
+
+-- | Create a new instance.
+newSTM :: Object f g -> STM (Instance f g)
+newSTM = liftM InstRef . newTMVar
+{-# INLINE newSTM #-}
