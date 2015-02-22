@@ -29,6 +29,7 @@ invoke m (InstRmap i t) f = invoke (m . t) i f
 (.-) :: MonadIO m => Instance f m -> f a -> m a
 (.-) = invoke id
 {-# INLINE (.-) #-}
+infixr 3 .-
 
 -- | Create a new instance.
 new :: MonadIO m => Object f g -> m (Instance f g)
