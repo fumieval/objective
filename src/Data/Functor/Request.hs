@@ -40,21 +40,44 @@ request :: a -> Request a b b
 request a = Request a id
 {-# INLINE request #-}
 
+accept :: Functor m => (a -> m b) -> Request a b r -> m r
+accept f = \(Request a cont) -> cont <$> f a
+{-# INLINE accept #-}
+
+{-# DEPRECATED handles "Use mealy instead" #-}
 handles :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
-handles f = Object $ \(Request a cont) -> first cont <$> f a
-{-# INLINE handles #-}
+handles = mealy
+
+mealy :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
+mealy f = Object $ \(Request a cont) -> first cont <$> f a
+{-# INLINE mealy #-}
 
 -- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
 flyweight :: (Applicative m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
 flyweight f = go HM.empty where
-  go m = Object $ \(Request k cont) -> case HM.lookup k m of
-    Just a -> pure (cont a, go m)
-    Nothing -> (\a -> (cont a, go $ HM.insert k a m)) <$> f k
+  go m = mealy $ \k -> case HM.lookup k m of
+    Just a -> pure (a, go m)
+    Nothing -> (\a -> (a, go $ HM.insert k a m)) <$> f k
 {-# INLINE flyweight #-}
 
+(>~~>) :: Monad m => Object (Request a b) m -> Object (Request b c) m -> Object (Request a c) m
+p >~~> q = Object $ \(Request a cont) -> do
+  (b, p') <- runObject p (Request a id)
+  (r, q') <- runObject q (Request b cont)
+  return (r, p' >~~> q')
+
+accumulator :: Applicative m => (b -> a -> b) -> b -> Object (Request a b) m
+accumulator f = go where
+  go b = mealy $ \a -> pure (b, go (f b a))
+{-# INLINE accumulator #-}
+
+-- |
+-- @
+-- animate f ≡ accumulator (+) 0 >~~> liftO (accept f)
+-- @
 animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
 animate f = go 0 where
-  go t = Object $ \(Request dt cont) -> (\x -> (cont x, go (t + dt))) <$> f t
+  go t = mealy $ \dt -> flip (,) (go (t + dt)) <$> f t
 {-# INLINE animate #-}
 
 transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m

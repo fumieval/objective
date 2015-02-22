@@ -3,6 +3,7 @@ version:             1.0.1
 synopsis:            Extensible objects
 description:         Stateful effect transducer
 homepage:            https://github.com/fumieval/objective
+bug-reports:         http://github.com/fumieval/objective/issues
 license:             BSD3
 license-file:        LICENSE
 author:              Fumiaki Kinoshita
@@ -15,6 +16,10 @@ extra-source-files:
   .travis.yml
 cabal-version:       >=1.10
 
+source-repository head
+  type: git
+  location: https://github.com/fumieval/objective.git
+
 library
   exposed-modules:
     Control.Object
@@ -22,7 +27,6 @@ library
       , Control.Object.Instance
       , Control.Object.Mortal
       , Data.Functor.Request
-  -- other-modules:
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
   build-depends:       base >=4.6 && <5
     , either >= 4.3 && <4.5
