@@ -1,3 +1,22 @@
+1.0.1
+----
+* Switched to use TMVar for instances
+* Added atomic operations
+* Add `apprises`
+* Re-added `accept`
+* Added `(>~~>)`
+* Added `accumulator`
+
+1.0
+----
+* No longer support `extensible`, `elevator`, and `minioperational`
+* Removed `Data.Functor.PushPull`
+* Removed `Control.Object.Process`
+* Removed `Control.Object.Stream`
+* Removed `Control.Monad.Objective`
+* Added `apprise`
+* Generalized `(^>>@)` and `(@>>^)` so that they also work on instances
+
 0.6.5
 ----
 * Supported `elevator >= 0.2`.
