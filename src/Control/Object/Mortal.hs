@@ -7,7 +7,13 @@ module Control.Object.Mortal (
     mortal_,
     runMortal,
     immortal,
-    apprise
+    apprise,
+    apprises,
+    -- * Combinators
+    gatherFst,
+    gatherSnd,
+    buildSingle,
+    buildBoth,
     ) where
 
 import Control.Object.Object
@@ -20,6 +26,7 @@ import Control.Monad.Trans.Writer.Strict
 import Data.Monoid
 import Data.Witherable
 import Unsafe.Coerce
+import Control.Arrow ((***))
 
 -- | Object with a final result.
 --
@@ -69,9 +76,32 @@ immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return
 
 -- | Send a message to mortals in a container.
 apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
-apprise f = StateT $ \t -> do
-  (t', (Endo ba, Endo br)) <- runWriterT $ flip wither t
+apprise f = buildBoth (apprises f)
+{-# INLINE apprise #-}
+
+-- | Send a message to mortals in a container.
+apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
+apprises f = \p q -> StateT $ \t -> do
+  (t', res) <- runWriterT $ flip wither t
     $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
-      Left r -> writer (Nothing, (mempty, Endo (r:)))
-      Right (x, obj') -> writer (Just obj', (Endo (x:), mempty))
-  return ((ba [], br []), t')
+      Left r -> writer (Nothing, q r)
+      Right (x, obj') -> writer (Just obj', p x)
+  return (res, t')
+{-# INLINE apprises #-}
+
+gatherFst :: (Monoid r) => ((a -> r) -> (b -> r) -> k) -> (a -> r) -> k
+gatherFst f g = f g (const mempty)
+{-# INLINE gatherFst #-}
+
+gatherSnd :: (Monoid r) => ((a -> r) -> (b -> r) -> k) -> (b -> r) -> k
+gatherSnd f g = f (const mempty) g
+{-# INLINE gatherSnd #-}
+
+buildSingle :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
+buildSingle f = fmap (flip appEndo []) (f (Endo . (:)))
+{-# INLINABLE buildSingle #-}
+
+buildBoth :: Functor f => ((a -> (Endo [a], Endo [b])) -> (b -> (Endo [a], Endo [b])) -> f (Endo [a], Endo [b])) -> f ([a], [b])
+buildBoth f = fmap (flip appEndo [] *** flip appEndo [])
+  $ f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
+{-# INLINABLE buildBoth #-}

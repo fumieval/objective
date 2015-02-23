@@ -6,7 +6,7 @@ import Control.Object.Object
 import Control.Monad.IO.Class
 import Control.Monad
 
--- | MVar-based instance
+-- | TMVar-based instance
 data Instance f g where
   InstRef :: TMVar (Object f g) -> Instance f g
   InstLmap :: (forall x. f x -> g x) -> Instance g h -> Instance f h
