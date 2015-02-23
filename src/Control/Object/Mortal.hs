@@ -89,12 +89,12 @@ apprises f = \p q -> StateT $ \t -> do
   return (res, t')
 {-# INLINE apprises #-}
 
-gatherFst :: (Monoid r) => ((a -> r) -> (b -> r) -> k) -> (a -> r) -> k
-gatherFst f g = f g (const mempty)
+gatherFst :: (Monoid r) => (a -> r) -> ((a -> r) -> (b -> r) -> k) -> k
+gatherFst g f = f g (const mempty)
 {-# INLINE gatherFst #-}
 
-gatherSnd :: (Monoid r) => ((a -> r) -> (b -> r) -> k) -> (b -> r) -> k
-gatherSnd f g = f (const mempty) g
+gatherSnd :: (Monoid r) => (b -> r) -> ((a -> r) -> (b -> r) -> k) -> k
+gatherSnd g f = f (const mempty) g
 {-# INLINE gatherSnd #-}
 
 buildSingle :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
