@@ -9,6 +9,8 @@ module Control.Object.Mortal (
     immortal,
     apprise,
     apprises,
+    apprises',
+    apprises_,
     -- * Combinators
     gatherFst,
     gatherSnd,
@@ -81,13 +83,23 @@ apprise f = buildBoth (apprises f)
 
 -- | Send a message to mortals in a container.
 apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
-apprises f = \p q -> StateT $ \t -> do
+apprises f p q = StateT $ \t -> do
   (t', res) <- runWriterT $ flip wither t
     $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
       Left r -> writer (Nothing, q r)
       Right (x, obj') -> writer (Just obj', p x)
   return (res, t')
 {-# INLINE apprises #-}
+
+-- | Like ignores, but ignores the final results.
+apprises' :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> StateT (t (Mortal f m b)) m r
+apprises' f c = apprises f c (const mempty)
+{-# INLINE apprises' #-}
+
+-- | Like ignores, but ignores the result.
+apprises_ :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (b -> r) -> StateT (t (Mortal f m b)) m r
+apprises_ f = apprises f (const mempty)
+{-# INLINE apprises_ #-}
 
 gatherFst :: (Monoid r) => (a -> r) -> ((a -> r) -> (b -> r) -> k) -> k
 gatherFst g f = f g (const mempty)
