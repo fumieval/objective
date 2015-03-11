@@ -5,6 +5,7 @@ import Control.Monad.STM
 import Control.Object.Object
 import Control.Monad.IO.Class
 import Control.Monad
+import Control.Monad.Catch (MonadMask, bracketOnError)
 
 -- | TMVar-based instance
 data Instance f g where
@@ -19,12 +20,17 @@ instance HProfunctor Instance where
   {-# INLINE (@>>^) #-}
 
 -- | Invoke a method with an explicit landing function.
-invokeOn :: MonadIO m => (forall x. g x -> m x) -> Instance f g -> f a -> m a
-invokeOn m (InstRef v) f = do
-  obj <- liftIO $ atomically $ takeTMVar v
-  (a, obj') <- m (runObject obj f)
-  liftIO $ atomically $ putTMVar v obj'
-  return a
+invokeOn :: (MonadIO m, MonadMask m)
+         => (forall x. g x -> m x) -> Instance f g -> f a -> m a
+invokeOn m (InstRef v) f = bracketOnError
+  (liftIO $ atomically $ takeTMVar v)
+  (\obj -> liftIO $ atomically $ do
+    _ <- tryTakeTMVar v
+    putTMVar v obj)
+  (\obj -> do
+    (a, obj') <- m (runObject obj f)
+    liftIO $ atomically $ putTMVar v obj'
+    return a)
 invokeOn m (InstLmap t i) f = invokeOn m i (t f)
 invokeOn m (InstRmap i t) f = invokeOn (m . t) i f
 
@@ -45,7 +51,7 @@ invokeOnSTM m (InstRmap i t) f = invokeOnSTM (m . t) i f
 infixr 3 ..-
 
 -- | Invoke a method.
-(.-) :: MonadIO m => Instance f m -> f a -> m a
+(.-) :: (MonadIO m, MonadMask m) => Instance f m -> f a -> m a
 (.-) = invokeOn id
 {-# INLINE (.-) #-}
 infixr 3 .-
