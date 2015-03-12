@@ -21,7 +21,7 @@ import qualified Data.HashMap.Strict as HM
 import Data.Hashable
 import Control.Arrow
 
--- | 'Request a b' is the type of a request that sends @a@ to receive @b@.
+-- | @'Request' a b@ is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
 
 mapRequest :: (a -> a') -> Request a b r -> Request a' b r
@@ -46,15 +46,11 @@ accept :: Functor m => (a -> m b) -> Request a b r -> m r
 accept f = \(Request a cont) -> cont <$> f a
 {-# INLINE accept #-}
 
-{-# DEPRECATED handles "Use mealy instead" #-}
-handles :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
-handles = mealy
-
 mealy :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
 mealy f = Object $ \(Request a cont) -> first cont <$> f a
 {-# INLINE mealy #-}
 
--- | Like 'flyweight', but it uses 'Data.HashMap.Strict' internally.
+-- | The flyweight pattern
 flyweight :: (Applicative m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
 flyweight f = go HM.empty where
   go m = mealy $ \k -> case HM.lookup k m of

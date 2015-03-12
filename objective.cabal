@@ -40,6 +40,7 @@ library
     , void
     , witherable
     , stm
+    , monad-stm
   ghc-options: -Wall
   hs-source-dirs:      src
   default-language:    Haskell2010

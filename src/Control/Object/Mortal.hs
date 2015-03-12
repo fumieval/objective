@@ -91,12 +91,12 @@ apprises f p q = StateT $ \t -> do
   return (res, t')
 {-# INLINE apprises #-}
 
--- | Like ignores, but ignores the final results.
+-- | Like apprises, but ignores the final results.
 apprises' :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> StateT (t (Mortal f m b)) m r
 apprises' f c = apprises f c (const mempty)
 {-# INLINE apprises' #-}
 
--- | Like ignores, but ignores the result.
+-- | Like apprises, but ignores the result.
 apprises_ :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (b -> r) -> StateT (t (Mortal f m b)) m r
 apprises_ f = apprises f (const mempty)
 {-# INLINE apprises_ #-}

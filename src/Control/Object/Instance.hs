@@ -4,6 +4,7 @@ import Control.Concurrent.STM.TMVar
 import Control.Monad.STM
 import Control.Object.Object
 import Control.Monad.IO.Class
+import Control.Monad.STM.Class
 import Control.Monad
 import Control.Monad.Catch (MonadMask, bracketOnError)
 
@@ -45,8 +46,8 @@ invokeOnSTM m (InstLmap t i) f = invokeOnSTM m i (t f)
 invokeOnSTM m (InstRmap i t) f = invokeOnSTM (m . t) i f
 
 -- | Invoke a method, atomically.
-(..-) :: Instance f STM -> f a -> STM a
-(..-) i = invokeOnSTM id i
+(..-) :: MonadSTM m => Instance f STM -> f a -> m a
+(..-) i = liftSTM . invokeOnSTM id i
 {-# INLINE (..-) #-}
 infixr 3 ..-
 
