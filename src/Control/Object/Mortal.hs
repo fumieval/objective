@@ -72,17 +72,15 @@ mortal_ = Mortal
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
 
-type FilterLike' f s a = (a -> f (Maybe a)) -> s -> f s
-
 -- | Send a message to mortals in a container.
-apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT (Endo r) m (Maybe (Mortal f m b))) -> s -> WriterT (Endo r) m s)
+apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT r m (Maybe (Mortal f m b))) -> s -> WriterT r m s)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> do
-  (t', Endo res) <- runWriterT $ flip l t
+  (t', res) <- runWriterT $ flip l t
     $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
-      Left r -> let !v = q r in writer (Nothing, Endo $ mappend v)
-      Right (x, obj') -> let !v = p x in writer (Just obj', Endo $ mappend v)
-  return (res mempty, t')
+      Left r -> writer (Nothing, q r)
+      Right (x, obj') -> writer (Just obj', p x)
+  return (res, t')
 
 -- | Send a message to mortals in a container.
 apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
