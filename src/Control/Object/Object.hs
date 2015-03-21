@@ -1,5 +1,5 @@
 {-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections #-}
+{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 #endif
@@ -94,10 +94,16 @@ unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
 -- | Build a stateful object.
 --
 -- @stateful t s = t ^>>@ variable s@
-stateful :: Monad m => (forall a. f a -> StateT s m a) -> s -> Object f m
+stateful :: Monad m => (forall a. t a -> StateT s m a) -> s -> Object t m
 stateful h = go where
   go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
+
+-- | Flipped 'stateful'
+(@~) :: Monad m => s -> (forall a. t a -> StateT s m a) -> Object t m
+s @~ h = stateful h s
+{-# INLINE (@~) #-}
+infix 1 @~
 
 -- | Cascading
 iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
@@ -111,7 +117,8 @@ iterative = unfoldOM iterObject
 
 -- | A mutable variable.
 variable :: Monad m => s -> Object (StateT s m) m
-variable s = Object $ \m -> liftM (fmap variable) $ runStateT m s
+variable = stateful id
+{-# INLINE variable #-}
 
 -- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]

@@ -1,3 +1,12 @@
+1.0.3
+----
+* Added `apprisesOf`
+* Added `(@~)`
+
+1.0.2
+----
+* Made `(.-)` exception-safe
+
 1.0.1
 ----
 * Switched to use TMVar for instances

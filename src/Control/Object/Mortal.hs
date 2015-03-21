@@ -1,21 +1,17 @@
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
 module Control.Object.Mortal (
     Mortal(..),
     mortal,
     mortal_,
     runMortal,
     immortal,
-    apprise,
+    apprisesOf,
     apprises,
-    apprises',
-    apprises_,
-    -- * Combinators
-    gatherFst,
-    gatherSnd,
-    buildSingle,
-    buildBoth,
+    apprise,
+    withBuilder,
     ) where
 
 import Control.Object.Object
@@ -76,44 +72,29 @@ mortal_ = Mortal
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
 
+type FilterLike' f s a = (a -> f (Maybe a)) -> s -> f s
+
 -- | Send a message to mortals in a container.
-apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
-apprise f = buildBoth (apprises f)
-{-# INLINE apprise #-}
+apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT (Endo r) m (Maybe (Mortal f m b))) -> s -> WriterT (Endo r) m s)
+  -> f a -> (a -> r) -> (b -> r) -> StateT s m r
+apprisesOf l f p q = StateT $ \t -> do
+  (t', Endo res) <- runWriterT $ flip l t
+    $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
+      Left r -> let !v = q r in writer (Nothing, Endo $ mappend v)
+      Right (x, obj') -> let !v = p x in writer (Just obj', Endo $ mappend v)
+  return (res mempty, t')
 
 -- | Send a message to mortals in a container.
 apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
-apprises f p q = StateT $ \t -> do
-  (t', res) <- runWriterT $ flip wither t
-    $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
-      Left r -> writer (Nothing, q r)
-      Right (x, obj') -> writer (Just obj', p x)
-  return (res, t')
+apprises = apprisesOf wither
 {-# INLINE apprises #-}
 
--- | Like apprises, but ignores the final results.
-apprises' :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> StateT (t (Mortal f m b)) m r
-apprises' f c = apprises f c (const mempty)
-{-# INLINE apprises' #-}
+-- | Send a message to mortals in a container.
+apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
+apprise f = fmap (flip appEndo [] *** flip appEndo [])
+  $ apprises f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
+{-# INLINE apprise #-}
 
--- | Like apprises, but ignores the result.
-apprises_ :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (b -> r) -> StateT (t (Mortal f m b)) m r
-apprises_ f = apprises f (const mempty)
-{-# INLINE apprises_ #-}
-
-gatherFst :: (Monoid r) => (a -> r) -> ((a -> r) -> (b -> r) -> k) -> k
-gatherFst g f = f g (const mempty)
-{-# INLINE gatherFst #-}
-
-gatherSnd :: (Monoid r) => (b -> r) -> ((a -> r) -> (b -> r) -> k) -> k
-gatherSnd g f = f (const mempty) g
-{-# INLINE gatherSnd #-}
-
-buildSingle :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
-buildSingle f = fmap (flip appEndo []) (f (Endo . (:)))
-{-# INLINABLE buildSingle #-}
-
-buildBoth :: Functor f => ((a -> (Endo [a], Endo [b])) -> (b -> (Endo [a], Endo [b])) -> f (Endo [a], Endo [b])) -> f ([a], [b])
-buildBoth f = fmap (flip appEndo [] *** flip appEndo [])
-  $ f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
-{-# INLINABLE buildBoth #-}
+withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
+withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
+{-# INLINABLE withBuilder #-}
