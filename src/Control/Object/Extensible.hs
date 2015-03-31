@@ -6,7 +6,8 @@ module Control.Object.Extensible (Action(..)
   , (@<|@)
   , solo
   , mkEffects
-  , module Data.Extensible.Internal
+  , Assoc(..)
+  , Associate
   , module Data.Proxy
   ) where
 
