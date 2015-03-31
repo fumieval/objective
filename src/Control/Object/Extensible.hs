@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
 module Control.Object.Extensible (Action(..)
   , Eff
   , liftEff
@@ -17,6 +17,9 @@ import Control.Object.Object
 import Language.Haskell.TH
 import Data.Char
 import Control.Monad
+#if !MIN_VERSION_base(4,8,0)
+import Data.Foldable (foldMap)
+#endif
 
 data Action (xs :: [Assoc k (* -> *)]) a where
     Action :: !(Membership xs (s ':> t)) -> t a -> Action xs a
@@ -58,10 +61,14 @@ mkEffects name = reify name >>= \case
   _ -> fail "mkEffects accepts GADT declaration"
   where
     mk tyvars eqs con (fmap snd -> argTypes) = do
+#if MIN_VERSION_template_haskell(2,10,0)
       let dic_ = [(v, t) | AppT (AppT EqualityT (VarT v)) t <- eqs]
+#else
+      let dic_ = [(v, t) | EqualP (VarT v) t <- eqs]
+#endif
       let dic = dic_ ++ [(t, VarT v) | (v, VarT t) <- dic_]
 
-      let tvs = map mkName $ take (n + 1) $ concatMap (flip replicateM ['a'..'z']) [1..]
+      let tvs = map mkName $ concatMap (flip replicateM ['a'..'z']) [1..]
 
       let params' = do
             (t, v) <- zip tyvars tvs
