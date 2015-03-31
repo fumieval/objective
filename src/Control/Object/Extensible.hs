@@ -104,11 +104,15 @@ mkEffects name = reify name >>= \case
       -- "Foo"
       let nameT = LitT $ StrTyLit $ nameBase name
 
+#if MIN_VERSION_template_haskell(2,10,0)
       -- Associate "Foo" (Foo a B) xs
       let cx = ConT ''Associate
             `AppT` nameT
             `AppT` eff
             `AppT` VarT (mkName "xs")
+#else
+      let cx = ClassP ''Associate [nameT, eff, VarT (mkName "xs")]
+#endif
 
       let typ = ForallT (PlainTV (mkName "xs") : extra (map PlainTV fts)) [cx] fun
 
