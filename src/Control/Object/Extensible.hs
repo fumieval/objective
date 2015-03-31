@@ -61,7 +61,7 @@ mkEffects name = reify name >>= \case
       let dic_ = [(v, t) | AppT (AppT EqualityT (VarT v)) t <- eqs]
       let dic = dic_ ++ [(t, VarT v) | (v, VarT t) <- dic_]
 
-      let tvs = map (mkName . ("t" ++) . show) [(0 :: Int)..]
+      let tvs = map mkName $ take (n + 1) $ concatMap (flip replicateM ['a'..'z']) [1..]
 
       let params' = do
             (t, v) <- zip tyvars tvs
