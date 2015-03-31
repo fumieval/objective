@@ -1,4 +1,4 @@
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
@@ -15,7 +15,9 @@ module Control.Object.Mortal (
     ) where
 
 import Control.Object.Object
+#if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
+#endif
 import Control.Monad.Trans.Either
 import Control.Monad
 import Control.Monad.Trans.Class
