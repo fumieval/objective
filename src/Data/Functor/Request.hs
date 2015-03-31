@@ -1,5 +1,4 @@
-{-# LANGUAGE Trustworthy #-}
-{-# LANGUAGE DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, TypeOperators, DataKinds, TypeFamilies #-}
+{-# LANGUAGE CPP, DeriveFunctor, DeriveDataTypeable, ConstraintKinds, FlexibleContexts, TypeOperators, DataKinds, TypeFamilies #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Functor.Request
@@ -13,7 +12,9 @@
 -----------------------------------------------------------------------------
 module Data.Functor.Request where
 import Data.Typeable
+#if !MIN_VERSION_base(4,8,0)
 import Data.Monoid
+#endif
 import Control.Applicative
 import Data.Profunctor
 import Control.Object.Object

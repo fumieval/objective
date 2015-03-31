@@ -1,4 +1,3 @@
-{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -63,12 +62,12 @@ instance HProfunctor Object where
 echo :: Functor f => Object f f
 echo = Object $ fmap (,echo)
 
--- | Lift natural transformation into an object
+-- | Lift a natural transformation into an object.
 liftO :: Functor g => (forall x. f x -> g x) -> Object f g
 liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
 {-# INLINE liftO #-}
 
--- | Object composition
+-- | Categorical object composition
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
 infixr 1 @>>@
@@ -93,13 +92,15 @@ unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
 
 -- | Build a stateful object.
 --
--- @stateful t s = t ^>>@ variable s@
+-- @stateful t s = t ^>>\@ variable s@
+--
 stateful :: Monad m => (forall a. t a -> StateT s m a) -> s -> Object t m
 stateful h = go where
   go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
 
 -- | Flipped 'stateful'
+-- it is convenient to use with the LambdaCase extension.
 (@~) :: Monad m => s -> (forall a. t a -> StateT s m a) -> Object t m
 s @~ h = stateful h s
 {-# INLINE (@~) #-}
