@@ -12,6 +12,7 @@ import Data.Traversable as T
 import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.Class
 import Data.Monoid
+import Data.Tuple (swap)
 
 -- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -133,8 +134,16 @@ cascade = unfoldOM cascadeObject
 {-# INLINE cascade #-}
 
 -- | Send a message to objects in a container.
+announcesOf :: (Monad m, Monoid r) => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
+  -> t a -> (a -> r) -> StateT s m r
+announcesOf t f c = StateT $ liftM swap . runWriterT
+  . t (\obj -> lift (runObject obj f) >>= \(x, obj') -> writer (obj', c x))
+
+-- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
-announce f = StateT $ \t -> do
-  (t', Endo e) <- runWriterT $ T.mapM (\obj -> lift (runObject obj f)
-      >>= \(x, obj') -> writer (obj', Endo (x:))) t
-  return (e [], t')
+announce f = withBuilder (announcesOf traverse f)
+{-# INLINABLE announce #-}
+
+withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
+withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
+{-# INLINABLE withBuilder #-}
