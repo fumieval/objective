@@ -7,6 +7,7 @@ import Data.Typeable
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
+import Control.Monad.Skeleton
 import Data.Traversable as T
 import Control.Monad.Trans.Writer.Strict
 import Control.Monad.Trans.Class
@@ -120,6 +121,16 @@ iterative = unfoldOM iterObject
 variable :: Monad m => s -> Object (StateT s m) m
 variable = stateful id
 {-# INLINE variable #-}
+
+-- | Cascading
+cascadeObject :: Monad m => Object t m -> Skeleton t a -> m (a, Object t m)
+cascadeObject obj sk = case unbone sk of
+  Return a -> return (a, obj)
+  t :>>= k -> runObject obj t >>= \(a, obj') -> cascadeObject obj' (k a)
+
+cascade :: (Monad m) => Object t m -> Object (Skeleton t) m
+cascade = unfoldOM cascadeObject
+{-# INLINE cascade #-}
 
 -- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
