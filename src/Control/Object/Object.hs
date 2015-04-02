@@ -141,9 +141,13 @@ announcesOf t f c = StateT $ liftM swap . runWriterT
 
 -- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
-announce f = withBuilder (announcesOf traverse f)
+announce f = withBuilderM (announcesOf T.mapM f)
 {-# INLINABLE announce #-}
 
 withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
 withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
 {-# INLINABLE withBuilder #-}
+
+withBuilderM :: Monad f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
+withBuilderM f = liftM (flip appEndo []) (f (Endo . (:)))
+{-# INLINABLE withBuilderM #-}
