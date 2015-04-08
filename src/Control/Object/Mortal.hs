@@ -72,7 +72,8 @@ mortal_ = Mortal
 
 -- | Turn an immortal into a mortal with eternal life.
 immortal :: Monad m => Object f m -> Mortal f m x
-immortal obj = mortal $ \f -> EitherT $ runObject obj f >>= \(a, obj') -> return $ Right (a, immortal obj')
+immortal obj = Mortal (obj @>>^ lift)
+{-# INLINE immortal #-}
 
 -- | Send a message to mortals in a container.
 apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT r m (Maybe (Mortal f m b))) -> s -> WriterT r m s)
