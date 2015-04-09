@@ -10,7 +10,6 @@ import Control.Monad
 import Control.Monad.Skeleton
 import Data.Traversable as T
 import Control.Monad.Trans.Writer.Strict
-import Control.Monad.Trans.Class
 import Data.Monoid
 import Data.Tuple (swap)
 
@@ -137,7 +136,8 @@ cascade = unfoldOM cascadeObject
 announcesOf :: (Monad m, Monoid r) => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
 announcesOf t f c = StateT $ liftM swap . runWriterT
-  . t (\obj -> lift (runObject obj f) >>= \(x, obj') -> writer (obj', c x))
+  . t (\obj -> WriterT $ runObject obj f >>= \(x, obj') -> return (obj', c x))
+{-# INLINABLE announcesOf #-}
 
 -- | Send a message to objects in a container.
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]

@@ -79,9 +79,10 @@ immortal obj = Mortal (obj @>>^ lift)
 apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT r m (Maybe (Mortal f m b))) -> s -> WriterT r m s)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
-    $ \obj -> lift (runEitherT $ runMortal obj f) >>= \case
-      Left r -> writer (Nothing, q r)
-      Right (x, obj') -> writer (Just obj', p x)
+    $ \obj -> WriterT $ runEitherT (runMortal obj f) >>= \case
+      Left r -> return (Nothing, q r)
+      Right (x, obj') -> return (Just obj', p x)
+{-# INLINABLE apprisesOf #-}
 
 -- | Send a message to mortals in a container.
 apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r

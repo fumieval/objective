@@ -28,7 +28,8 @@ data Action (xs :: [Assoc k (* -> *)]) a where
 type Eff xs = Skeleton (Action xs)
 
 liftEff :: forall proxy s t xs a. Associate s t xs => proxy s -> t a -> Eff xs a
-liftEff _ = bone . Action (association :: Membership xs (s ':> t))
+liftEff _ x = bone (Action (association :: Membership xs (s ':> t)) x)
+{-# INLINE liftEff #-}
 
 emptyObject :: Object (Eff '[]) m
 emptyObject = Object $ const $ error "Impossbile"
