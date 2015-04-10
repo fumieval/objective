@@ -2,7 +2,38 @@
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 #endif
-module Control.Object.Object where
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Object.Object
+-- Copyright   :  (c) Fumiaki Kinoshita 2015
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  GADTs, Rank2Types
+--
+-----------------------------------------------------------------------------
+module Control.Object.Object (Object(..)
+  , echo
+  , (@>>@)
+  , (@<<@)
+  , liftO
+  , unfoldO
+  , unfoldOM
+  -- * Stateful construction
+  , stateful
+  , (@~)
+  -- * Method cascading
+  , (@-)
+  , iterObject
+  , iterative
+  , cascadeObject
+  , cascading
+  -- * Masses
+  , announcesOf
+  , announce
+  , withBuilder
+  ) where
 import Data.Typeable
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
@@ -40,7 +71,8 @@ objectTyCon = mkTyCon3 "objective" "Control.Object" "Object"
 #endif
 {-# NOINLINE objectTyCon #-}
 #endif
--- | An alias for 'runObject'
+
+-- | An infix alias for 'runObject'
 (@-) :: Object f g -> f x -> g (x, Object f g)
 (@-) = runObject
 {-# INLINE (@-) #-}
@@ -49,6 +81,7 @@ infixr 3 @-
 infixr 1 ^>>@
 infixr 1 @>>^
 
+-- | Higher-order profunctors
 class HProfunctor k where
   (^>>@) :: Functor h => (forall x. f x -> g x) -> k g h -> k f h
   (@>>^) :: Functor h => k f g -> (forall x. g x -> h x) -> k f h
@@ -68,7 +101,7 @@ liftO :: Functor g => (forall x. f x -> g x) -> Object f g
 liftO f = go where go = Object $ fmap (\x -> (x, go)) . f
 {-# INLINE liftO #-}
 
--- | Categorical object composition
+-- | The categorical composition of objects.
 (@>>@) :: Functor h => Object f g -> Object g h -> Object f h
 Object m @>>@ Object n = Object $ fmap (\((x, m'), n') -> (x, m' @>>@ n')) . n . m
 infixr 1 @>>@
@@ -80,8 +113,9 @@ infixr 1 @>>@
 infixl 1 @<<@
 
 -- | The unwrapped analog of 'stateful'
---     @unfoldO runObject = id@
---     @unfoldO iterObject = iterable@
+--     @id = unfoldO runObject@
+--     @iterative = unfoldO iterObject@
+--     @cascade = unfoldO cascadeObject@
 unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
 unfoldO h = go where go r = Object $ fmap (fmap go) . h r
 {-# INLINE unfoldO #-}
@@ -100,7 +134,7 @@ stateful h = go where
   go s = Object $ \f -> runStateT (h f) s >>= \(a, s') -> s' `seq` return (a, go s')
 {-# INLINE stateful #-}
 
--- | Flipped 'stateful'
+-- | Flipped 'stateful'.
 -- it is convenient to use with the LambdaCase extension.
 (@~) :: Monad m => s -> (forall a. t a -> StateT s m a) -> Object t m
 s @~ h = stateful h s
@@ -118,28 +152,35 @@ iterative = unfoldOM iterObject
 {-# INLINE iterative #-}
 
 -- | A mutable variable.
+--
+-- @variable = stateful id@
+--
 variable :: Monad m => s -> Object (StateT s m) m
 variable = stateful id
 {-# INLINE variable #-}
 
--- | Cascading
+-- | Pass zero or more messages to an object.
 cascadeObject :: Monad m => Object t m -> Skeleton t a -> m (a, Object t m)
 cascadeObject obj sk = case unbone sk of
   Return a -> return (a, obj)
   t :>>= k -> runObject obj t >>= \(a, obj') -> cascadeObject obj' (k a)
 
-cascade :: (Monad m) => Object t m -> Object (Skeleton t) m
-cascade = unfoldOM cascadeObject
+-- | Add capability to handle multiple messages at once.
+cascading :: (Monad m) => Object t m -> Object (Skeleton t) m
+cascading = unfoldOM cascadeObject
 {-# INLINE cascade #-}
 
--- | Send a message to objects in a container.
+-- | Send a message to objects through a traversal.
 announcesOf :: (Monad m, Monoid r) => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
 announcesOf t f c = StateT $ liftM swap . runWriterT
   . t (\obj -> WriterT $ runObject obj f >>= \(x, obj') -> return (obj', c x))
 {-# INLINABLE announcesOf #-}
 
--- | Send a message to objects in a container.
+-- | Send a message to objects in a traversable container.
+--
+-- @announce = withBuilder . announcesOf traverse@
+--
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
 announce f = withBuilderM (announcesOf T.mapM f)
 {-# INLINABLE announce #-}

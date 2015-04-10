@@ -2,7 +2,7 @@
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.Functor.Request
--- Copyright   :  (c) Fumiaki Kinoshita 2014
+-- Copyright   :  (c) Fumiaki Kinoshita 2015
 -- License     :  BSD3
 --
 -- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
@@ -25,6 +25,7 @@ import Control.Arrow
 -- | @'Request' a b@ is the type of a request that sends @a@ to receive @b@.
 data Request a b r = Request a (b -> r) deriving (Functor, Typeable)
 
+-- | Apply a function to the body of 'Request'
 mapRequest :: (a -> a') -> Request a b r -> Request a' b r
 mapRequest f (Request a br) = Request (f a) br
 {-# INLINE mapRequest #-}
@@ -39,19 +40,22 @@ instance Monoid a => Applicative (Request a b) where
   Request a c <*> Request b d = Request (mappend a b) (c <*> d)
   {-# INLINE (<*>) #-}
 
+-- | Create a 'Request'.
 request :: a -> Request a b b
 request a = Request a id
 {-# INLINE request #-}
 
+-- | Handle a 'Request', smashing the continuation.
 accept :: Functor m => (a -> m b) -> Request a b r -> m r
 accept f = \(Request a cont) -> cont <$> f a
 {-# INLINE accept #-}
 
+-- | Add a step as a mealy machine
 mealy :: Functor m => (a -> m (b, Object (Request a b) m)) -> Object (Request a b) m
 mealy f = Object $ \(Request a cont) -> first cont <$> f a
 {-# INLINE mealy #-}
 
--- | The flyweight pattern
+-- | The flyweight object
 flyweight :: (Applicative m, Eq k, Hashable k) => (k -> m a) -> Object (Request k a) m
 flyweight f = go HM.empty where
   go m = mealy $ \k -> case HM.lookup k m of
@@ -59,6 +63,7 @@ flyweight f = go HM.empty where
     Nothing -> (\a -> (a, go $ HM.insert k a m)) <$> f k
 {-# INLINE flyweight #-}
 
+-- | Compose mealy machines
 (>~~>) :: Monad m => Object (Request a b) m -> Object (Request b c) m -> Object (Request a c) m
 p >~~> q = Object $ \(Request a cont) -> do
   (b, p') <- runObject p (Request a id)
@@ -70,15 +75,16 @@ accumulator f = go where
   go b = mealy $ \a -> pure (b, go (f b a))
 {-# INLINE accumulator #-}
 
--- |
--- @
--- animate f ≡ accumulator (+) 0 >~~> liftO (accept f)
--- @
+-- | Create a mealy machine from a time-varying action.
+--
+-- @ animate f ≡ accumulator (+) 0 >~~> liftO (accept f)@
+--
 animate :: (Applicative m, Num t) => (t -> m a) -> Object (Request t a) m
 animate f = go 0 where
   go t = mealy $ \dt -> flip (,) (go (t + dt)) <$> f t
 {-# INLINE animate #-}
 
+-- | Like 'animate', but the life is limited.
 transit :: (Alternative m, Fractional t, Ord t) => t -> (t -> m a) -> Object (Request t a) m
 transit len f = animate go where
   go t

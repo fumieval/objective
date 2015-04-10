@@ -1,4 +1,15 @@
 {-# LANGUAGE GADTs, Rank2Types #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Object.Instance
+-- Copyright   :  (c) Fumiaki Kinoshita 2015
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  GADTs, Rank2Types
+--
+-----------------------------------------------------------------------------
 module Control.Object.Instance (
   -- * Instantiation
   Instance(..)

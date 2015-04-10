@@ -8,8 +8,6 @@
 -- Stability   :  experimental
 -- Portability :  non-portable
 --
--- Stateful effect transducer: The Mealy machine for effects.
---
 -----------------------------------------------------------------------------
 module Control.Object
   ( module Control.Object.Object,

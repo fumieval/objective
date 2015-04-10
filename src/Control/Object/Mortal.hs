@@ -2,6 +2,17 @@
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Object.Mortal
+-- Copyright   :  (c) Fumiaki Kinoshita 2015
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  provisional
+-- Portability :  GADTs, Rank2Types
+--
+-----------------------------------------------------------------------------
 module Control.Object.Mortal (
     Mortal(..),
     mortal,
@@ -28,7 +39,10 @@ import Unsafe.Coerce
 import Data.Tuple (swap)
 import Control.Arrow ((***))
 
--- | Object with a final result.
+-- | A 'Mortal' is an object that may die.
+-- A mortal yields a final result upon death.
+-- @'Mortal' f g@ forms a 'Monad':
+-- 'return' is a dead object and ('>>=') prolongs the life of the left object.
 --
 -- @Object f g ≡ Mortal f g Void@
 --
@@ -70,12 +84,12 @@ mortal_ :: Object f (EitherT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
--- | Turn an immortal into a mortal with eternal life.
+-- | Turn an object into a mortal without death.
 immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = Mortal (obj @>>^ lift)
 {-# INLINE immortal #-}
 
--- | Send a message to mortals in a container.
+-- | Send a message to mortals through a filter.
 apprisesOf :: (Monad m, Monoid r) => ((Mortal f m b -> WriterT r m (Maybe (Mortal f m b))) -> s -> WriterT r m s)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
@@ -84,7 +98,10 @@ apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
       Right (x, obj') -> return (Just obj', p x)
 {-# INLINABLE apprisesOf #-}
 
--- | Send a message to mortals in a container.
+-- | Send a message to mortals in a 'Witherable' container.
+--
+-- @apprises = apprisesOf wither@
+--
 apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
 apprises = apprisesOf wither
 {-# INLINE apprises #-}

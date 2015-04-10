@@ -1,4 +1,16 @@
 {-# LANGUAGE CPP, GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Control.Object.Extensible
+-- Copyright   :  (c) Fumiaki Kinoshita 2015
+-- License     :  BSD3
+--
+-- Maintainer  :  Fumiaki Kinoshita <fumiexcel@gmail.com>
+-- Stability   :  experimental
+-- Portability :  non-portable
+--
+-- Extensible effects and objects
+-----------------------------------------------------------------------------
 module Control.Object.Extensible (Action(..)
   , Eff
   , liftEff
@@ -22,18 +34,11 @@ import Control.Monad
 import Data.Foldable (foldMap)
 #endif
 
-data Action (xs :: [Assoc k (* -> *)]) a where
-    Action :: !(Membership xs (s ':> t)) -> t a -> Action xs a
-
-type Eff xs = Skeleton (Action xs)
-
-liftEff :: forall proxy s t xs a. Associate s t xs => proxy s -> t a -> Eff xs a
-liftEff _ x = bone (Action (association :: Membership xs (s ':> t)) x)
-{-# INLINE liftEff #-}
-
+-- | The empty object does not accept any messages.
 emptyObject :: Object (Eff '[]) m
 emptyObject = Object $ const $ error "Impossbile"
 
+-- | Extend an object
 (@<|@) :: Monad m => Object t m -> Object (Eff xs) m -> Object (Eff ((s ':> t) ': xs)) m
 obj @<|@ base = Object $ \m -> case unbone m of
   Return a -> return (a, obj @<|@ base)
@@ -43,7 +48,9 @@ obj @<|@ base = Object $ \m -> case unbone m of
     (\p' -> runObject base (bone $ Action p' t)
       >>= \(a, base') -> runObject (obj @<|@ base') (k a))
 
--- | @solo a = a '@<|@' 'emptyObject'@
+-- | Promote an object so that it handles 'Eff'
+--
+-- @solo a = a '@<|@' 'emptyObject'@
 solo :: Monad m => Object t m -> Object (Eff '[s ':> t]) m
 solo obj = Object $ \m -> case unbone m of
   Return a -> return (a, solo obj)
@@ -51,6 +58,19 @@ solo obj = Object $ \m -> case unbone m of
     (\Refl -> runObject obj t >>= \(a, obj') -> runObject (solo obj') (k a))
     (const $ error "Impossbile")
 
+-- | A unit of effects
+data Action (xs :: [Assoc k (* -> *)]) a where
+  Action :: !(Membership xs (s ':> t)) -> t a -> Action xs a
+
+-- | The extensible operational monad
+type Eff xs = Skeleton (Action xs)
+
+-- | Lift some effect to 'Eff'
+liftEff :: forall proxy s t xs a. Associate s t xs => proxy s -> t a -> Eff xs a
+liftEff _ x = bone (Action (association :: Membership xs (s ':> t)) x)
+{-# INLINE liftEff #-}
+
+-- | Generate named effects from a GADT declaration.
 mkEffects :: Name -> DecsQ
 mkEffects name = reify name >>= \case
   TyConI (DataD _ _ (fmap getTV -> tyvars) cs _)

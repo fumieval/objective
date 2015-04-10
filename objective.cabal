@@ -1,7 +1,7 @@
 name:                objective
 version:             1.0.4
-synopsis:            Extensible objects
-description:         Stateful effect transducer
+synopsis:            Composable objects
+description:         Composable objects
 homepage:            https://github.com/fumieval/objective
 bug-reports:         http://github.com/fumieval/objective/issues
 license:             BSD3
