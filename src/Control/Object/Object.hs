@@ -18,11 +18,13 @@ module Control.Object.Object (Object(..)
   , (@>>@)
   , (@<<@)
   , liftO
+  , HProfunctor(..)
+  -- * Stateful construction
   , unfoldO
   , unfoldOM
-  -- * Stateful construction
   , stateful
   , (@~)
+  , variable
   -- * Method cascading
   , (@-)
   , iterObject
@@ -168,7 +170,7 @@ cascadeObject obj sk = case unbone sk of
 -- | Add capability to handle multiple messages at once.
 cascading :: (Monad m) => Object t m -> Object (Skeleton t) m
 cascading = unfoldOM cascadeObject
-{-# INLINE cascade #-}
+{-# INLINE cascading #-}
 
 -- | Send a message to objects through a traversal.
 announcesOf :: (Monad m, Monoid r) => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
