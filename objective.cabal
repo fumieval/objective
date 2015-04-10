@@ -37,6 +37,7 @@ library
     , transformers >= 0.3
     , free
     , hashable
+    , mtl
     , profunctors
     , void
     , witherable

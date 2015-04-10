@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP, Rank2Types, GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, Rank2Types, GADTs, ViewPatterns, LambdaCase, TemplateHaskell, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE PolyKinds, KindSignatures, DataKinds #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, UndecidableInstances #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object.Extensible
@@ -34,6 +36,9 @@ import Control.Monad
 #if !MIN_VERSION_base(4,8,0)
 import Data.Foldable (foldMap)
 #endif
+import Control.Monad.Reader
+import Control.Monad.State.Strict
+import Control.Monad.Writer
 
 -- | The empty object does not accept any messages.
 emptyObject :: Object (Eff '[]) m
@@ -75,6 +80,26 @@ hoistEff :: forall proxy s t xs a. Associate s t xs => proxy s -> (forall x. t x
 hoistEff _ f = hoistSkeleton $ \(Action i t) -> case compareMembership (association :: Membership xs (s ':> t)) i of
     Right Refl -> Action i (f t)
     _ -> Action i t
+
+instance Associate "Reader" (Reader r) xs => MonadReader r (Eff xs) where
+  ask = liftEff (Proxy :: Proxy "Reader") ask
+  local f = hoistEff (Proxy :: Proxy "Reader") (local f)
+
+instance Associate "State" (State s) xs => MonadState s (Eff xs) where
+  get = liftEff (Proxy :: Proxy "State") get
+  put s = liftEff (Proxy :: Proxy "State") (put s)
+  state f = liftEff (Proxy :: Proxy "State") (state f)
+
+instance (Monoid w, Associate "Writer" (Writer w) xs) => MonadWriter w (Eff xs) where
+  writer a = liftEff (Proxy :: Proxy "Writer") (writer a)
+  tell w = liftEff (Proxy :: Proxy "Writer") (tell w)
+  listen = go mempty where
+    go w m = case unbone m of
+      Return a -> return (a, w)
+      Action i t :>>= k -> case compareMembership (association :: Membership xs ("Writer" ':> Writer w)) i of
+        Right Refl -> bone (Action i t) >>= go (w <> execWriter t) . k
+        Left _ -> bone (Action i t) >>= go w . k
+  pass m = listen m >>= \((a, f), w) -> writer (a, f w)
 
 -- | Generate named effects from a GADT declaration.
 mkEffects :: Name -> DecsQ
