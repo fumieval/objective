@@ -1,5 +1,16 @@
 {-# LANGUAGE GADTs, Rank2Types #-}
-module Control.Object.Instance where
+module Control.Object.Instance (
+  -- * Instantiation
+  Instance(..)
+  , new
+  , newSettle
+  , newSTM
+  -- * Invocation
+  , invokeOn
+  , invokeOnSTM
+  , (.-)
+  , (..-)
+  ) where
 import Control.Concurrent.STM.TMVar
 import Control.Monad.STM
 import Control.Object.Object
@@ -57,9 +68,9 @@ infixr 3 ..-
 {-# INLINE (.-) #-}
 infixr 3 .-
 
--- | Create a new instance.
+-- | Create a new instance. This can be used inside 'unsafePerformIO' to create top-level instances.
 new :: MonadIO m => Object f g -> m (Instance f g)
-new = liftIO . atomically . newSTM
+new = liftIO . liftM InstRef . newTMVarIO
 {-# INLINE new #-}
 
 -- | Create a new instance, having it sitting on the current environment.
@@ -68,6 +79,6 @@ newSettle = new
 {-# INLINE newSettle #-}
 
 -- | Create a new instance.
-newSTM :: Object f g -> STM (Instance f g)
-newSTM = liftM InstRef . newTMVar
+newSTM :: MonadSTM m => Object f g -> m (Instance f g)
+newSTM = liftSTM . liftM InstRef . newTMVar
 {-# INLINE newSTM #-}
