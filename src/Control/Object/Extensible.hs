@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, Rank2Types, GADTs, ViewPatterns, LambdaCase, FlexibleContexts, TemplateHaskell, PolyKinds, KindSignatures, DataKinds, TypeOperators, ScopedTypeVariables #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object.Extensible
@@ -14,6 +14,7 @@
 module Control.Object.Extensible (Action(..)
   , Eff
   , liftEff
+  , hoistEff
   , emptyObject
   , (@<|@)
   , solo
@@ -24,7 +25,7 @@ module Control.Object.Extensible (Action(..)
   ) where
 
 import Control.Monad.Skeleton
-import Data.Extensible.Internal (Assoc(..), Associate(..), Membership(..), runMembership, (:~:)(..))
+import Data.Extensible.Internal (Assoc(..), Associate(..), Membership(..), runMembership, (:~:)(..), compareMembership)
 import Data.Proxy
 import Control.Object.Object
 import Language.Haskell.TH
@@ -69,6 +70,11 @@ type Eff xs = Skeleton (Action xs)
 liftEff :: forall proxy s t xs a. Associate s t xs => proxy s -> t a -> Eff xs a
 liftEff _ x = bone (Action (association :: Membership xs (s ':> t)) x)
 {-# INLINE liftEff #-}
+
+hoistEff :: forall proxy s t xs a. Associate s t xs => proxy s -> (forall x. t x -> t x) -> Eff xs a -> Eff xs a
+hoistEff _ f = hoistSkeleton $ \(Action i t) -> case compareMembership (association :: Membership xs (s ':> t)) i of
+    Right Refl -> Action i (f t)
+    _ -> Action i t
 
 -- | Generate named effects from a GADT declaration.
 mkEffects :: Name -> DecsQ
