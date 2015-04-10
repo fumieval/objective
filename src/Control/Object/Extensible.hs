@@ -86,7 +86,6 @@ mkEffects name = reify name >>= \case
             VarT n -> maybe (VarT n) VarT $ lookup n params'
             x -> x) argTypes
 
-      runIO $ print (dic, last tyvars, params')
       let (extra, result) = case lookup (last tyvars) dic of
             Just (VarT v) -> (id, case lookup v params' of
               Just p -> VarT p
