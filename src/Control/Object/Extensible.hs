@@ -78,21 +78,29 @@ liftEff _ x = bone (Action (association :: Membership xs (s ':> t)) x)
 
 hoistEff :: forall proxy s t xs a. Associate s t xs => proxy s -> (forall x. t x -> t x) -> Eff xs a -> Eff xs a
 hoistEff _ f = hoistSkeleton $ \(Action i t) -> case compareMembership (association :: Membership xs (s ':> t)) i of
-    Right Refl -> Action i (f t)
-    _ -> Action i t
+  Right Refl -> Action i (f t)
+  _ -> Action i t
+{-# INLINABLE hoistEff #-}
 
 instance Associate "Reader" (Reader r) xs => MonadReader r (Eff xs) where
   ask = liftEff (Proxy :: Proxy "Reader") ask
+  {-# INLINE ask #-}
   local f = hoistEff (Proxy :: Proxy "Reader") (local f)
+  {-# INLINE local #-}
 
 instance Associate "State" (State s) xs => MonadState s (Eff xs) where
   get = liftEff (Proxy :: Proxy "State") get
+  {-# INLINE get #-}
   put s = liftEff (Proxy :: Proxy "State") (put s)
+  {-# INLINE put #-}
   state f = liftEff (Proxy :: Proxy "State") (state f)
+  {-# INLINE state #-}
 
 instance (Monoid w, Associate "Writer" (Writer w) xs) => MonadWriter w (Eff xs) where
   writer a = liftEff (Proxy :: Proxy "Writer") (writer a)
+  {-# INLINE writer #-}
   tell w = liftEff (Proxy :: Proxy "Writer") (tell w)
+  {-# INLINE tell #-}
   listen = go mempty where
     go w m = case unbone m of
       Return a -> return (a, w)
@@ -100,6 +108,7 @@ instance (Monoid w, Associate "Writer" (Writer w) xs) => MonadWriter w (Eff xs) 
         Right Refl -> bone (Action i t) >>= go (w <> execWriter t) . k
         Left _ -> bone (Action i t) >>= go w . k
   pass m = listen m >>= \((a, f), w) -> writer (a, f w)
+  {-# INLINABLE pass #-}
 
 -- | Generate named effects from a GADT declaration.
 mkEffects :: Name -> DecsQ
