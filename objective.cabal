@@ -44,7 +44,7 @@ library
     , stm
     , monad-stm
     , extensible >= 0.3.2 && <4
-    , monad-skeleton
+    , monad-skeleton >= 0.1 && <0.3
     , template-haskell
   ghc-options: -Wall
   hs-source-dirs:      src
