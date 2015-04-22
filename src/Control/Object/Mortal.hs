@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
@@ -35,9 +36,9 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Writer.Strict
 import Data.Monoid
 import Data.Witherable
-import Unsafe.Coerce
 import Data.Tuple (swap)
 import Control.Arrow ((***))
+import Unsafe.Coerce
 
 -- | A 'Mortal' is an object that may die.
 -- A mortal yields a final result upon death.
@@ -70,13 +71,13 @@ instance MonadTrans (Mortal f) where
   {-# INLINE lift #-}
 
 -- | Construct a mortal in a 'Object' construction manner.
-mortal :: (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
-mortal f = Mortal (Object (fmap unsafeCoerce f))
+mortal :: Monad m => (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
+mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (fmap (fmap unMortal) . f))
 {-# INLINE mortal #-}
 
 -- | Send a message to a mortal.
-runMortal :: Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
-runMortal = unsafeCoerce
+runMortal :: Monad m => Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
+runMortal = unsafeCoerce `asTypeOf` ((fmap (fmap Mortal) . ) . runObject . unMortal)
 {-# INLINE runMortal #-}
 
 -- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.

@@ -1,4 +1,5 @@
-{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns #-}
+{-# LANGUAGE Safe #-}
+{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns, GADTs #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 #endif
@@ -19,6 +20,7 @@ module Control.Object.Object (Object(..)
   , (@<<@)
   , liftO
   , HProfunctor(..)
+  , (@||@)
   -- * Stateful construction
   , unfoldO
   , unfoldOM
@@ -45,6 +47,7 @@ import Data.Traversable as T
 import Control.Monad.Trans.Writer.Strict
 import Data.Monoid
 import Data.Tuple (swap)
+import qualified Data.Functor.Sum as Functor
 
 -- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
 -- It can be thought of as an automaton that converts effects.
@@ -113,6 +116,11 @@ infixr 1 @>>@
 (@<<@) = flip (@>>@)
 {-# INLINE (@<<@) #-}
 infixl 1 @<<@
+
+(@||@) :: Functor h => Object f h -> Object g h -> Object (f `Functor.Sum` g) h
+a @||@ b = Object $ \r -> case r of
+  Functor.InL f -> fmap (fmap (@||@b)) (runObject a f)
+  Functor.InR g -> fmap (fmap (a@||@)) (runObject b g)
 
 -- | The unwrapped analog of 'stateful'
 --     @id = unfoldO runObject@
