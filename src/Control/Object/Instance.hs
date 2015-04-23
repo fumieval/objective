@@ -33,40 +33,34 @@ import Control.Monad.Catch (MonadMask, bracketOnError)
 
 -- | TMVar-based instance
 data Instance f g where
-  InstRef :: TMVar (Object f g) -> Instance f g
-  InstLmap :: (forall x. f x -> g x) -> Instance g h -> Instance f h
-  InstRmap :: Instance f g -> (forall x. g x -> h x) -> Instance f h
+  InstRef :: (forall x. e x -> f x) -> (forall x. g x -> h x) -> TMVar (Object f g) -> Instance e h
 
 instance HProfunctor Instance where
-  (^>>@) = InstLmap
+  f ^>>@ InstRef l r v = InstRef (l . f) r v
   {-# INLINE (^>>@) #-}
-  (@>>^) = InstRmap
+  InstRef l r v @>>^ f = InstRef l (f . r) v
   {-# INLINE (@>>^) #-}
 
 -- | Invoke a method with an explicit landing function.
 invokeOn :: (MonadIO m, MonadMask m)
          => (forall x. g x -> m x) -> Instance f g -> f a -> m a
-invokeOn m (InstRef v) f = bracketOnError
+invokeOn m (InstRef t l v) f = bracketOnError
   (liftIO $ atomically $ takeTMVar v)
   (\obj -> liftIO $ atomically $ do
     _ <- tryTakeTMVar v
     putTMVar v obj)
   (\obj -> do
-    (a, obj') <- m (runObject obj f)
+    (a, obj') <- m $ l $ runObject obj (t f)
     liftIO $ atomically $ putTMVar v obj'
     return a)
-invokeOn m (InstLmap t i) f = invokeOn m i (t f)
-invokeOn m (InstRmap i t) f = invokeOn (m . t) i f
 
 -- | Invoke a method with an explicit landing function.
 invokeOnSTM :: (forall x. g x -> STM x) -> Instance f g -> f a -> STM a
-invokeOnSTM m (InstRef v) f = do
+invokeOnSTM m (InstRef t l v) f = do
   obj <- takeTMVar v
-  (a, obj') <- m (runObject obj f)
+  (a, obj') <- m $ l $ runObject obj (t f)
   putTMVar v obj'
   return a
-invokeOnSTM m (InstLmap t i) f = invokeOnSTM m i (t f)
-invokeOnSTM m (InstRmap i t) f = invokeOnSTM (m . t) i f
 
 -- | Invoke a method, atomically.
 (..-) :: MonadSTM m => Instance f STM -> f a -> m a
@@ -82,7 +76,7 @@ infixr 3 .-
 
 -- | Create a new instance. This can be used inside 'unsafePerformIO' to create top-level instances.
 new :: MonadIO m => Object f g -> m (Instance f g)
-new = liftIO . liftM InstRef . newTMVarIO
+new = liftIO . liftM (InstRef id id) . newTMVarIO
 {-# INLINE new #-}
 
 -- | Create a new instance, having it sitting on the current environment.
@@ -92,5 +86,5 @@ newSettle = new
 
 -- | Create a new instance.
 newSTM :: MonadSTM m => Object f g -> m (Instance f g)
-newSTM = liftSTM . liftM InstRef . newTMVar
+newSTM = liftSTM . liftM (InstRef id id) . newTMVar
 {-# INLINE newSTM #-}
