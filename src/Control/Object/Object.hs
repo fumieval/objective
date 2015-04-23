@@ -1,8 +1,11 @@
-{-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns, GADTs #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE Rank2Types, TupleSections, TypeOperators #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
-#endif
+{-# LANGUAGE Safe #-}
+#else
 {-# LANGUAGE Trustworthy #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object.Object
