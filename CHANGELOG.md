@@ -1,3 +1,12 @@
+1.0.4
+----
+* Simplified `Instance`
+* Added `snapshot`
+* Added `cascade`, `cascadeObject`
+* Added `announcesOf`
+* Added `(@||@)`
+* Safe Haskell
+
 1.0.3
 ----
 * Added `apprisesOf`

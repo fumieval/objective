@@ -22,6 +22,7 @@ module Control.Object.Instance (
   , invokeOnSTM
   , (.-)
   , (..-)
+  , snapshot
   ) where
 import Control.Concurrent.STM.TMVar
 import Control.Monad.STM
@@ -73,6 +74,11 @@ infixr 3 ..-
 (.-) = invokeOn id
 {-# INLINE (.-) #-}
 infixr 3 .-
+
+-- | Take a snapshot of an instance.
+snapshot :: (MonadSTM m, Functor g) => Instance f g -> m (Object f g)
+snapshot (InstRef f g v) = liftSTM $ go <$> takeTMVar v
+  where go (Object m) = Object $ fmap (fmap go) . g . m . f
 
 -- | Create a new instance. This can be used inside 'unsafePerformIO' to create top-level instances.
 new :: MonadIO m => Object f g -> m (Instance f g)

@@ -1,10 +1,8 @@
 {-# LANGUAGE Rank2Types, CPP, TypeOperators, DataKinds, TupleSections, BangPatterns, GADTs #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE Safe #-}
-#else
-{-# LANGUAGE Trustworthy #-}
 #endif
+{-# LANGUAGE Trustworthy #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object.Object
@@ -52,7 +50,7 @@ import Data.Tuple (swap)
 import qualified Data.Functor.Sum as Functor
 
 -- | The type @Object f g@ represents objects which can handle messages @f@, perform actions in the environment @g@.
--- It can be thought of as an automaton that converts effects.
+-- It can be thought of as an automaton that transforms effects.
 -- 'Object's can be composed just like functions using '@>>@'; the identity element is 'echo'.
 -- Objects are morphisms of the category of actions.
 --
@@ -119,12 +117,13 @@ infixr 1 @>>@
 {-# INLINE (@<<@) #-}
 infixl 1 @<<@
 
+-- | Combine objects so as to handle a 'Functor.Sum' of interfaces.
 (@||@) :: Functor h => Object f h -> Object g h -> Object (f `Functor.Sum` g) h
 a @||@ b = Object $ \r -> case r of
   Functor.InL f -> fmap (fmap (@||@b)) (runObject a f)
   Functor.InR g -> fmap (fmap (a@||@)) (runObject b g)
 
--- | The unwrapped analog of 'stateful'
+-- | An unwrapped analog of 'stateful'
 --     @id = unfoldO runObject@
 --     @iterative = unfoldO iterObject@
 --     @cascade = unfoldO cascadeObject@
