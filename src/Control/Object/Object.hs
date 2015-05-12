@@ -149,7 +149,7 @@ stateful h = go where
 {-# INLINE stateful #-}
 
 -- | Flipped 'stateful'.
--- it is convenient to use with the LambdaCase extension.
+-- it is super convenient to use with the LambdaCase extension.
 (@~) :: Monad m => s -> (forall a. t a -> StateT s m a) -> Object t m
 s @~ h = stateful h s
 {-# INLINE (@~) #-}
@@ -160,7 +160,7 @@ iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
 iterObject obj (Pure a) = return (a, obj)
 iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
 
--- | Objects can consume free monads
+-- | Objects can consume free monads. 'cascading' is more preferred.
 iterative :: (Monad m) => Object f m -> Object (Free f) m
 iterative = unfoldOM iterObject
 {-# INLINE iterative #-}
@@ -185,7 +185,8 @@ cascading = unfoldOM cascadeObject
 {-# INLINE cascading #-}
 
 -- | Send a message to objects through a traversal.
-announcesOf :: (Monad m, Monoid r) => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
+announcesOf :: Monad m
+  => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
 announcesOf t f c = StateT $ liftM swap . runWriterT
   . t (\obj -> WriterT $ runObject obj f >>= \(x, obj') -> return (obj', c x))
