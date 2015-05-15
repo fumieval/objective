@@ -162,7 +162,7 @@ iterObject obj (Pure a) = return (a, obj)
 iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
 
 -- | Objects can consume free monads. 'cascading' is more preferred.
-iterative :: (Monad m) => Object f m -> Object (Free f) m
+iterative :: Monad m => Object f m -> Object (Free f) m
 iterative = unfoldOM iterObject
 {-# INLINE iterative #-}
 
@@ -181,7 +181,7 @@ cascadeObject obj sk = case unbone sk of
   t :>>= k -> runObject obj t >>= \(a, obj') -> cascadeObject obj' (k a)
 
 -- | Add capability to handle multiple messages at once.
-cascading :: (Monad m) => Object t m -> Object (Skeleton t) m
+cascading :: Monad m => Object t m -> Object (Skeleton t) m
 cascading = unfoldOM cascadeObject
 {-# INLINE cascading #-}
 
