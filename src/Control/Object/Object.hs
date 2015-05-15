@@ -36,9 +36,10 @@ module Control.Object.Object (Object(..)
   , iterative
   , cascadeObject
   , cascading
-  -- * Masses
+  -- * Manipulation on StateT
   , announcesOf
   , announce
+  , (@!=)
   , withBuilder
   ) where
 import Data.Typeable
@@ -128,8 +129,8 @@ a @||@ b = Object $ \r -> case r of
 
 -- | An unwrapped analog of 'stateful'
 --     @id = unfoldO runObject@
---     @iterative = unfoldO iterObject@
---     @cascade = unfoldO cascadeObject@
+--     @'iterative' = unfoldO 'iterObject'@
+--     @'cascading' = unfoldO 'cascadeObject'@
 unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
 unfoldO h = go where go r = Object $ fmap (fmap go) . h r
 {-# INLINE unfoldO #-}
@@ -184,7 +185,7 @@ cascading :: (Monad m) => Object t m -> Object (Skeleton t) m
 cascading = unfoldOM cascadeObject
 {-# INLINE cascading #-}
 
--- | Send a message to objects through a traversal.
+-- | Send a message to objects through a lens.
 announcesOf :: Monad m
   => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
@@ -199,6 +200,13 @@ announcesOf t f c = StateT $ liftM swap . runWriterT
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
 announce f = withBuilderM (announcesOf T.mapM f)
 {-# INLINABLE announce #-}
+
+-- | A method invocation operator on 'StateT'.
+(@!=) :: Monad m
+  => ((Object t m -> WriterT a m (Object t m)) -> s -> WriterT a m s)
+  -> t a -> StateT s m a
+l @!= f = announcesOf l f id
+{-# INLINE (@!=) #-}
 
 withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
 withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
