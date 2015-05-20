@@ -92,7 +92,7 @@ immortal obj = Mortal (obj @>>^ lift)
 
 -- | Send a message to mortals through a filter.
 apprisesOf :: Monad m
-  => ((Mortal f m b -> WriterT r m (Maybe (Mortal f m b))) -> s -> WriterT r m s)
+  => FilterLike' (WriterT r m) s (Mortal f m b)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
     $ \obj -> WriterT $ runEitherT (runMortal obj f) >>= \case
