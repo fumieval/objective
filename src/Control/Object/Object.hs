@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE Rank2Types, TupleSections, TypeOperators #-}
+{-# LANGUAGE GADTs #-}
 #if __GLASGOW_HASKELL__ >= 707
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Safe #-}
@@ -36,6 +37,10 @@ module Control.Object.Object (Object(..)
   , iterative
   , cascadeObject
   , cascading
+  -- * Filtering
+  , Fallible(..)
+  , filteredO
+  , filterO
   -- * Manipulation on StateT
   , announcesOf
   , announce
@@ -215,3 +220,20 @@ withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
 withBuilderM :: Monad f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
 withBuilderM f = liftM (flip appEndo []) (f (Endo . (:)))
 {-# INLINABLE withBuilderM #-}
+
+data Fallible t a where
+  Fallible :: t a -> Fallible t (Maybe a)
+
+filteredO :: Monad m
+       => (forall x. t x -> Bool)
+       -> Object t m -> Object (Fallible t) m
+filteredO p obj = Object $ \(Fallible t) ->
+  if p t then
+      runObject obj t
+      >>= \(a, obj') -> return (Just a, filteredO p obj')
+    else
+      return (Nothing, filteredO p obj)
+
+filterO :: (forall x. t x -> Bool) -> Object (Fallible t) (Skeleton t)
+filterO p = filteredO p (liftO bone)
+{-# INLINE filterO #-}

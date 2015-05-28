@@ -1,3 +1,7 @@
+1.0.5
+----
+* Added `filterO` and `filteredO`
+
 1.0.4
 ----
 * Simplified `Instance`
