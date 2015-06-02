@@ -1,6 +1,10 @@
 1.0.5
 ----
 * Added `filterO` and `filteredO`
+* Renamed `announcesOf` to `invokesOf`
+* Added `invokes`
+* Added `(@!=)`
+* Shaved unnecessary `Monoid r` off in `apprisesOf`
 
 1.0.4
 ----

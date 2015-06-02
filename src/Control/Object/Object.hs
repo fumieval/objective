@@ -42,9 +42,10 @@ module Control.Object.Object (Object(..)
   , filteredO
   , filterO
   -- * Manipulation on StateT
-  , announcesOf
-  , announce
+  , invokesOf
+  , invokes
   , (@!=)
+  , announce
   , withBuilder
   ) where
 import Data.Typeable
@@ -190,27 +191,32 @@ cascading :: Monad m => Object t m -> Object (Skeleton t) m
 cascading = unfoldOM cascadeObject
 {-# INLINE cascading #-}
 
--- | Send a message to objects through a lens.
-announcesOf :: Monad m
+-- | Send a message to an object through a lens.
+invokesOf :: Monad m
   => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
-announcesOf t f c = StateT $ liftM swap . runWriterT
+invokesOf t f c = StateT $ liftM swap . runWriterT
   . t (\obj -> WriterT $ runObject obj f >>= \(x, obj') -> return (obj', c x))
-{-# INLINABLE announcesOf #-}
+{-# INLINABLE invokesOf #-}
+
+invokes :: (T.Traversable t, Monad m, Monoid r)
+  => f a -> (a -> r) -> StateT (t (Object f m)) m r
+invokes = invokesOf T.mapM
+{-# INLINE invokes #-}
 
 -- | Send a message to objects in a traversable container.
 --
--- @announce = withBuilder . announcesOf traverse@
+-- @announce = withBuilder . invokesOf traverse@
 --
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
-announce f = withBuilderM (announcesOf T.mapM f)
+announce f = withBuilderM (invokes f)
 {-# INLINABLE announce #-}
 
 -- | A method invocation operator on 'StateT'.
 (@!=) :: Monad m
   => ((Object t m -> WriterT a m (Object t m)) -> s -> WriterT a m s)
   -> t a -> StateT s m a
-l @!= f = announcesOf l f id
+l @!= f = invokesOf l f id
 {-# INLINE (@!=) #-}
 
 withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
@@ -227,12 +233,9 @@ data Fallible t a where
 filteredO :: Monad m
        => (forall x. t x -> Bool)
        -> Object t m -> Object (Fallible t) m
-filteredO p obj = Object $ \(Fallible t) ->
-  if p t then
-      runObject obj t
-      >>= \(a, obj') -> return (Just a, filteredO p obj')
-    else
-      return (Nothing, filteredO p obj)
+filteredO p obj = Object $ \(Fallible t) -> if p t
+  then runObject obj t >>= \(a, obj') -> return (Just a, filteredO p obj')
+  else return (Nothing, filteredO p obj)
 
 filterO :: (forall x. t x -> Bool) -> Object (Fallible t) (Skeleton t)
 filterO p = filteredO p (liftO bone)
