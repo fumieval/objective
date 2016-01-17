@@ -23,7 +23,8 @@ module Control.Object.Object (Object(..)
   , (@>>@)
   , (@<<@)
   , liftO
-  , HProfunctor(..)
+  , (^>>@)
+  , (@>>^)
   , (@||@)
   -- * Stateful construction
   , unfoldO
@@ -96,16 +97,13 @@ infixr 3 @-
 infixr 1 ^>>@
 infixr 1 @>>^
 
--- | Higher-order profunctors
-class HProfunctor k where
-  (^>>@) :: Functor h => (forall x. f x -> g x) -> k g h -> k f h
-  (@>>^) :: Functor h => k f g -> (forall x. g x -> h x) -> k f h
+(^>>@) :: Functor h => (forall x. f x -> g x) -> Object g h -> Object f h
+f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
+{-# INLINE (^>>@) #-}
 
-instance HProfunctor Object where
-  m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
-  {-# INLINE (@>>^) #-}
-  f ^>>@ m0 = go m0 where go (Object m) = Object $ fmap (fmap go) . m . f
-  {-# INLINE (^>>@) #-}
+(@>>^) :: Functor h => Object f g -> (forall x. g x -> h x) -> Object f h
+m0 @>>^ g = go m0 where go (Object m) = Object $ fmap (fmap go) . g . m
+{-# INLINE (@>>^) #-}
 
 -- | The trivial object
 echo :: Functor f => Object f f

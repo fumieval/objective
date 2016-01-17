@@ -1,3 +1,8 @@
+1.1
+----
+* Removed `HProfunctor`, `(..-)`, `invokeOnSTM`, `newSTM`, `snapshot`
+* Added `(?-)`
+
 1.0.5
 ----
 * Added `filterO` and `filteredO`
