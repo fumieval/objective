@@ -33,7 +33,7 @@ type Instance f g = MVar (Object f g)
 
 invokeOnUsing :: (MonadIO m, MonadMask m)
   => (Object f g -> t a -> g (a, Object f g))
-  -> (forall x. g x -> m x) -> MVar (Object f g) -> t a -> m a
+  -> (forall x. g x -> m x) -> Instance f g -> t a -> m a
 invokeOnUsing run m v f = mask $ \restore -> do
   obj <- liftIO $ takeMVar v
   (a, obj') <- restore (m (run obj f) >>= liftIO . evaluate) `onException` liftIO (putMVar v obj)
@@ -43,24 +43,24 @@ invokeOnUsing run m v f = mask $ \restore -> do
 -- | Invoke a method with an explicit landing function.
 -- In case of exception, the original object will be set.
 invokeOn :: (MonadIO m, MonadMask m)
-         => (forall x. g x -> m x) -> MVar (Object f g) -> f a -> m a
+         => (forall x. g x -> m x) -> Instance f g -> f a -> m a
 invokeOn = invokeOnUsing runObject
 {-# INLINE invokeOn #-}
 
 -- | Invoke a method.
-(.-) :: (MonadIO m, MonadMask m) => MVar (Object f m) -> f a -> m a
+(.-) :: (MonadIO m, MonadMask m) => Instance f m -> f a -> m a
 (.-) = invokeOn id
 {-# INLINE (.-) #-}
 infixr 3 .-
 
 (..-) :: (MonadIO m, MonadMask m)
-    => MVar (Object t m) -> Skeleton t a -> m a
+    => Instance t m -> Skeleton t a -> m a
 (..-) = invokeOnUsing cascadeObject id
 {-# INLINE (..-) #-}
 infixr 3 ..-
 
 -- | Try to invoke a method. If the instance is unavailable, it returns Nothing.
-(?-) :: (MonadIO m, MonadMask m) => MVar (Object f m) -> f a -> m (Maybe a)
+(?-) :: (MonadIO m, MonadMask m) => Instance f m -> f a -> m (Maybe a)
 v ?- f = mask $ \restore -> liftIO (tryTakeMVar v) >>= \case
   Just obj -> do
     (a, obj') <- restore (runObject obj f >>= liftIO . evaluate) `onException` liftIO (putMVar v obj)
