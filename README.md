@@ -21,7 +21,7 @@ An object interprets a message `f a` and returns the result `a` and the next obj
 ```haskell
 data Counter a where
   Increment :: Counter ()
-  Print :: Counter ()
+  Print :: Counter Int
 
 counter :: Int -> Object Counter IO
 counter n = Object $ \case
