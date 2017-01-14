@@ -1,7 +1,7 @@
 objective
 ====
 
-[![Hackage](https://img.shields.io/hackage/v/objective.svg)](https://hackage.haskell.org/package/objective) [![Build Status](https://secure.travis-ci.org/fumieval/objective.png?branch=master)](http://travis-ci.org/fumieval/objectve)
+[![Hackage](https://img.shields.io/hackage/v/objective.svg)](https://hackage.haskell.org/package/objective) [![Build Status](https://secure.travis-ci.org/fumieval/objective.png?branch=master)](http://travis-ci.org/fumieval/objective)
 
 Paper: https://fumieval.github.io/papers/en/2015-Haskell-objects.html
 
@@ -21,7 +21,7 @@ An object interprets a message `f a` and returns the result `a` and the next obj
 ```haskell
 data Counter a where
   Increment :: Counter ()
-  Print :: Counter ()
+  Print :: Counter Int
 
 counter :: Int -> Object Counter IO
 counter n = Object $ \case
