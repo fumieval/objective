@@ -27,7 +27,7 @@ fmap (joinO . joinO) . outO c . outO b . outO a
 
 ```haskell
 outO ((a @>>@ b) @>>@ c)
-= { (@>>@)の定義 }
+= { Definition of (@>>@) }
 fmap joinO . outO c . (fmap joinO . outO b . outO a) f
 = { outO . inO = id }
 fmap joinO . outO c . fmap joinO . outO b . outO a
