@@ -180,7 +180,7 @@ variable = stateful id
 
 -- | Pass zero or more messages to an object.
 cascadeObject :: Monad m => Object t m -> Skeleton t a -> m (a, Object t m)
-cascadeObject obj sk = case unbone sk of
+cascadeObject obj sk = case debone sk of
   Return a -> return (a, obj)
   t :>>= k -> runObject obj t >>= \(a, obj') -> cascadeObject obj' (k a)
 
