@@ -29,11 +29,12 @@ import Control.Object.Object
 #if !MIN_VERSION_base(4,8,0)
 import Control.Applicative
 #endif
-import Control.Monad.Trans.Either
+import Control.Monad.Trans.Except
 import Control.Monad
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Writer.Strict
+import Data.Bifunctor
 import Data.Monoid
 import Data.Witherable
 import Data.Tuple (swap)
@@ -47,10 +48,10 @@ import Unsafe.Coerce
 --
 -- @Object f g ≡ Mortal f g Void@
 --
-newtype Mortal f g a = Mortal { unMortal :: Object f (EitherT a g) }
+newtype Mortal f g a = Mortal { unMortal :: Object f (ExceptT a g) }
 
 instance (Functor m, Monad m) => Functor (Mortal f m) where
-  fmap f (Mortal obj) = Mortal (obj @>>^ bimapEitherT f id)
+  fmap f (Mortal obj) = Mortal (obj @>>^ mapExceptT (fmap (first f)))
   {-# INLINE fmap #-}
 
 instance (Functor m, Monad m) => Applicative (Mortal f m) where
@@ -60,28 +61,28 @@ instance (Functor m, Monad m) => Applicative (Mortal f m) where
   {-# INLINE (<*>) #-}
 
 instance Monad m => Monad (Mortal f m) where
-  return a = mortal $ const $ left a
+  return a = mortal $ const $ throwE a
   {-# INLINE return #-}
-  m >>= k = mortal $ \f -> lift (runEitherT $ runMortal m f) >>= \r -> case r of
+  m >>= k = mortal $ \f -> lift (runExceptT $ runMortal m f) >>= \r -> case r of
     Left a -> runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
 
 instance MonadTrans (Mortal f) where
-  lift m = mortal $ const $ EitherT $ liftM Left m
+  lift m = mortal $ const $ ExceptT $ liftM Left m
   {-# INLINE lift #-}
 
 -- | Construct a mortal in a 'Object' construction manner.
-mortal :: Monad m => (forall x. f x -> EitherT a m (x, Mortal f m a)) -> Mortal f m a
+mortal :: Monad m => (forall x. f x -> ExceptT a m (x, Mortal f m a)) -> Mortal f m a
 mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (fmap (fmap unMortal) . f))
 {-# INLINE mortal #-}
 
 -- | Send a message to a mortal.
-runMortal :: Monad m => Mortal f m a -> f x -> EitherT a m (x, Mortal f m a)
+runMortal :: Monad m => Mortal f m a -> f x -> ExceptT a m (x, Mortal f m a)
 runMortal = unsafeCoerce `asTypeOf` ((fmap (fmap Mortal) . ) . runObject . unMortal)
 {-# INLINE runMortal #-}
 
 -- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.
-mortal_ :: Object f (EitherT () g) -> Mortal f g ()
+mortal_ :: Object f (ExceptT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
@@ -95,7 +96,7 @@ apprisesOf :: Monad m
   => FilterLike' (WriterT r m) s (Mortal f m b)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
-    $ \obj -> WriterT $ runEitherT (runMortal obj f) >>= \case
+    $ \obj -> WriterT $ runExceptT (runMortal obj f) >>= \case
       Left r -> return (Nothing, q r)
       Right (x, obj') -> return (Just obj', p x)
 {-# INLINABLE apprisesOf #-}
