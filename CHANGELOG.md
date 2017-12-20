@@ -1,3 +1,8 @@
+1.1.2
+----
+
+* Removed `either` dependency
+
 1.1
 ----
 * Removed `HProfunctor`, `(..-)`, `invokeOnSTM`, `newSTM`, `snapshot`
