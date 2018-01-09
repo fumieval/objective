@@ -87,7 +87,7 @@ mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
 -- | Turn an object into a mortal without death.
-immortal :: Monad m => Object f m -> Mortal f m x
+immortal :: (Functor m, Monad m) => Object f m -> Mortal f m x
 immortal obj = Mortal (obj @>>^ lift)
 {-# INLINE immortal #-}
 
