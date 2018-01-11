@@ -73,12 +73,12 @@ instance MonadTrans (Mortal f) where
 
 -- | Construct a mortal in a 'Object' construction manner.
 mortal :: Monad m => (forall x. f x -> ExceptT a m (x, Mortal f m a)) -> Mortal f m a
-mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (fmap (fmap unMortal) . f))
+mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (liftM (fmap unMortal) . f))
 {-# INLINE mortal #-}
 
 -- | Send a message to a mortal.
 runMortal :: Monad m => Mortal f m a -> f x -> ExceptT a m (x, Mortal f m a)
-runMortal = unsafeCoerce `asTypeOf` ((fmap (fmap Mortal) . ) . runObject . unMortal)
+runMortal = unsafeCoerce `asTypeOf` ((liftM (fmap Mortal) . ) . runObject . unMortal)
 {-# INLINE runMortal #-}
 
 -- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.
@@ -87,7 +87,7 @@ mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
 -- | Turn an object into a mortal without death.
-immortal :: Monad m => Object f m -> Mortal f m x
+immortal :: (Functor m, Monad m) => Object f m -> Mortal f m x
 immortal obj = Mortal (obj @>>^ lift)
 {-# INLINE immortal #-}
 
