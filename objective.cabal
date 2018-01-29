@@ -35,7 +35,7 @@ library
     , unordered-containers >= 0.2.0.0 && <0.3
     , transformers >= 0.3 && <0.6
     , transformers-compat
-    , free >= 4 && <5
+    , free >= 4 && <5.5
     , hashable
     , mtl
     , profunctors
