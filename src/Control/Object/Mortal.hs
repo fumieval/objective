@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE Trustworthy #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
@@ -26,9 +25,6 @@ module Control.Object.Mortal (
     ) where
 
 import Control.Object.Object
-#if !MIN_VERSION_base(4,8,0)
-import Control.Applicative
-#endif
 import Control.Monad.Trans.Except
 import Control.Monad
 import Control.Monad.Trans.Class
@@ -93,7 +89,7 @@ immortal obj = Mortal (obj @>>^ lift)
 
 -- | Send a message to mortals through a filter.
 apprisesOf :: Monad m
-  => FilterLike' (WriterT r m) s (Mortal f m b)
+  => WitherLike' (WriterT r m) s (Mortal f m b)
   -> f a -> (a -> r) -> (b -> r) -> StateT s m r
 apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
     $ \obj -> WriterT $ runExceptT (runMortal obj f) >>= \case

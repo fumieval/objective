@@ -1,12 +1,6 @@
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE Rank2Types, TupleSections, TypeOperators #-}
+{-# LANGUAGE RankNTypes, TupleSections, TypeOperators #-}
 {-# LANGUAGE GADTs #-}
-#if __GLASGOW_HASKELL__ >= 707
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Safe #-}
-#else
-{-# LANGUAGE Trustworthy #-}
-#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Control.Object.Object
@@ -49,7 +43,6 @@ module Control.Object.Object (Object(..)
   , announce
   , withBuilder
   ) where
-import Data.Typeable
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Free
 import Control.Monad
@@ -69,24 +62,6 @@ import qualified Data.Functor.Sum as Functor
 --     @runObject obj . fmap f ≡ fmap f . runObject obj@
 --
 newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
-#if __GLASGOW_HASKELL__ >= 707
-  deriving (Typeable)
-#else
-instance (Typeable1 f, Typeable1 g) => Typeable (Object f g) where
-  typeOf t = mkTyConApp objectTyCon [typeOf1 (f t), typeOf1 (g t)] where
-    f :: Object f g -> f a
-    f = undefined
-    g :: Object f g -> g a
-    g = undefined
-
-objectTyCon :: TyCon
-#if __GLASGOW_HASKELL__ < 704
-objectTyCon = mkTyCon "Control.Object.Object"
-#else
-objectTyCon = mkTyCon3 "objective" "Control.Object" "Object"
-#endif
-{-# NOINLINE objectTyCon #-}
-#endif
 
 -- | An infix alias for 'runObject'
 (@-) :: Object f g -> f x -> g (x, Object f g)
