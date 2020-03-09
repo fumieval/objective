@@ -28,8 +28,6 @@ module Control.Object.Object (Object(..)
   , variable
   -- * Method cascading
   , (@-)
-  , iterObject
-  , iterative
   , cascadeObject
   , cascading
   -- * Filtering
@@ -44,7 +42,6 @@ module Control.Object.Object (Object(..)
   , withBuilder
   ) where
 import Control.Monad.Trans.State.Strict
-import Control.Monad.Free
 import Control.Monad
 import Control.Monad.Skeleton
 import Data.Traversable as T
@@ -134,16 +131,6 @@ stateful h = go where
 s @~ h = stateful h s
 {-# INLINE (@~) #-}
 infix 1 @~
-
--- | Cascading
-iterObject :: Monad m => Object f m -> Free f a -> m (a, Object f m)
-iterObject obj (Pure a) = return (a, obj)
-iterObject obj (Free f) = runObject obj f >>= \(cont, obj') -> iterObject obj' cont
-
--- | Objects can consume free monads. 'cascading' is more preferred.
-iterative :: Monad m => Object f m -> Object (Free f) m
-iterative = unfoldOM iterObject
-{-# INLINE iterative #-}
 
 -- | A mutable variable.
 --
