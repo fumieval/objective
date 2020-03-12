@@ -1,5 +1,5 @@
 name:                objective
-version:             1.1.2
+version:             1.2
 synopsis:            Composable objects
 description:         Composable objects
 homepage:            https://github.com/fumieval/objective
@@ -26,7 +26,6 @@ library
       , Control.Object.Object
       , Control.Object.Instance
       , Control.Object.Mortal
-      , Data.Functor.Request
   other-extensions:    MultiParamTypeClasses, KindSignatures, TypeFamilies
   build-depends:       base >=4.6 && <5
     , bifunctors

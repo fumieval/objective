@@ -1,3 +1,9 @@
+1.2
+----
+
+* Removed `iterObject` and `iterative`
+* Removed `Data.Functor.Request`
+
 1.1.2
 ----
 
