@@ -19,7 +19,6 @@ module Control.Object.Mortal (
     mortal_,
     runMortal,
     immortal,
-    apprisesOf,
     apprises,
     apprise
     ) where
@@ -32,7 +31,7 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Writer.Strict
 import Data.Bifunctor
 import Data.Monoid
-import Data.Witherable
+import Witherable
 import Data.Tuple (swap)
 import Control.Arrow ((***))
 import Unsafe.Coerce
@@ -85,22 +84,12 @@ immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = Mortal (obj @>>^ lift)
 {-# INLINE immortal #-}
 
--- | Send a message to mortals through a filter.
-apprisesOf :: Monad m
-  => WitherLike' (WriterT r m) s (Mortal f m b)
-  -> f a -> (a -> r) -> (b -> r) -> StateT s m r
-apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
-    $ \obj -> WriterT $ runExceptT (runMortal obj f) >>= \case
-      Left r -> return (Nothing, q r)
-      Right (x, obj') -> return (Just obj', p x)
-{-# INLINABLE apprisesOf #-}
-
 -- | Send a message to mortals in a 'Witherable' container.
---
--- @apprises = apprisesOf wither@
---
 apprises :: (Witherable t, Monad m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
-apprises = apprisesOf wither
+apprises f p q = StateT $ \t -> liftM swap $ runWriterT $ flip wither t
+  $ \obj -> WriterT $ runExceptT (runMortal obj f) >>= \case
+    Left r -> return (Nothing, q r)
+    Right (x, obj') -> return (Just obj', p x)
 {-# INLINE apprises #-}
 
 -- | Send a message to mortals in a container.
