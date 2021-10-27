@@ -41,9 +41,7 @@ module Control.Object.Object (Object(..)
   , withListBuilder
   ) where
 import Control.Monad.Trans.State.Strict
-import Control.Monad
 import Control.Monad.Skeleton
-import Data.Traversable as T
 import Control.Monad.Trans.Writer.Strict
 import Data.Monoid
 import Data.Tuple (swap)
@@ -149,20 +147,20 @@ cascading = unfoldO cascadeObject
 invokesOf :: Monad m
   => ((Object t m -> WriterT r m (Object t m)) -> s -> WriterT r m s)
   -> t a -> (a -> r) -> StateT s m r
-invokesOf t f c = StateT $ liftM swap . runWriterT
+invokesOf t f c = StateT $ fmap swap . runWriterT
   . t (\obj -> WriterT $ runObject obj f >>= \(x, obj') -> return (obj', c x))
 {-# INLINABLE invokesOf #-}
 
-invokes :: (T.Traversable t, Monad m, Monoid r)
+invokes :: (Traversable t, Monad m, Monoid r)
   => f a -> (a -> r) -> StateT (t (Object f m)) m r
-invokes = invokesOf T.mapM
+invokes = invokesOf traverse
 {-# INLINE invokes #-}
 
 -- | Send a message to objects in a traversable container.
 --
 -- @announce = withListBuilder . invokesOf traverse@
 --
-announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
+announce :: (Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
 announce f = withListBuilder (invokes f)
 {-# INLINABLE announce #-}
 

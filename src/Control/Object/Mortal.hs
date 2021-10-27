@@ -61,17 +61,17 @@ instance Monad m => Monad (Mortal f m) where
     Right (x, m') -> return (x, m' >>= k)
 
 instance MonadTrans (Mortal f) where
-  lift m = mortal $ const $ ExceptT $ liftM Left m
+  lift m = mortal $ const $ ExceptT $ fmap Left m
   {-# INLINE lift #-}
 
 -- | Construct a mortal in a 'Object' construction manner.
 mortal :: Monad m => (forall x. f x -> ExceptT a m (x, Mortal f m a)) -> Mortal f m a
-mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (liftM (fmap unMortal) . f))
+mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (fmap (fmap unMortal) . f))
 {-# INLINE mortal #-}
 
 -- | Send a message to a mortal.
 runMortal :: Monad m => Mortal f m a -> f x -> ExceptT a m (x, Mortal f m a)
-runMortal = unsafeCoerce `asTypeOf` ((liftM (fmap Mortal) . ) . runObject . unMortal)
+runMortal = unsafeCoerce `asTypeOf` ((fmap (fmap Mortal) . ) . runObject . unMortal)
 {-# INLINE runMortal #-}
 
 -- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.
@@ -86,7 +86,7 @@ immortal obj = Mortal (obj @>>^ lift)
 
 -- | Send a message to mortals in a 'Witherable' container.
 apprises :: (Witherable t, Monad m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
-apprises f p q = StateT $ \t -> liftM swap $ runWriterT $ flip wither t
+apprises f p q = StateT $ \t -> fmap swap $ runWriterT $ flip wither t
   $ \obj -> WriterT $ runExceptT (runMortal obj f) >>= \case
     Left r -> return (Nothing, q r)
     Right (x, obj') -> return (Just obj', p x)
