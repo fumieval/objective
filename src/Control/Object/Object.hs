@@ -22,7 +22,6 @@ module Control.Object.Object (Object(..)
   , (@||@)
   -- * Stateful construction
   , unfoldO
-  , unfoldOM
   , stateful
   , (@~)
   , variable
@@ -39,7 +38,7 @@ module Control.Object.Object (Object(..)
   , invokes
   , (@!=)
   , announce
-  , withBuilder
+  , withListBuilder
   ) where
 import Control.Monad.Trans.State.Strict
 import Control.Monad
@@ -111,11 +110,6 @@ unfoldO :: Functor g => (forall a. r -> f a -> g (a, r)) -> r -> Object f g
 unfoldO h = go where go r = Object $ fmap (fmap go) . h r
 {-# INLINE unfoldO #-}
 
--- | Same as 'unfoldO' but requires 'Monad' instead
-unfoldOM :: Monad m => (forall a. r -> f a -> m (a, r)) -> r -> Object f m
-unfoldOM h = go where go r = Object $ liftM (fmap go) . h r
-{-# INLINE unfoldOM #-}
-
 -- | Build a stateful object.
 --
 -- @stateful t s = t ^>>\@ variable s@
@@ -148,7 +142,7 @@ cascadeObject obj sk = case debone sk of
 
 -- | Add capability to handle multiple messages at once.
 cascading :: Monad m => Object t m -> Object (Skeleton t) m
-cascading = unfoldOM cascadeObject
+cascading = unfoldO cascadeObject
 {-# INLINE cascading #-}
 
 -- | Send a message to an object through a lens.
@@ -166,10 +160,10 @@ invokes = invokesOf T.mapM
 
 -- | Send a message to objects in a traversable container.
 --
--- @announce = withBuilder . invokesOf traverse@
+-- @announce = withListBuilder . invokesOf traverse@
 --
 announce :: (T.Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
-announce f = withBuilderM (invokes f)
+announce f = withListBuilder (invokes f)
 {-# INLINABLE announce #-}
 
 -- | A method invocation operator on 'StateT'.
@@ -179,13 +173,9 @@ announce f = withBuilderM (invokes f)
 l @!= f = invokesOf l f id
 {-# INLINE (@!=) #-}
 
-withBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
-withBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
-{-# INLINABLE withBuilder #-}
-
-withBuilderM :: Monad f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
-withBuilderM f = liftM (flip appEndo []) (f (Endo . (:)))
-{-# INLINABLE withBuilderM #-}
+withListBuilder :: Functor f => ((a -> Endo [a]) -> f (Endo [a])) -> f [a]
+withListBuilder f = fmap (flip appEndo []) (f (Endo . (:)))
+{-# INLINABLE withListBuilder #-}
 
 data Fallible t a where
   Fallible :: t a -> Fallible t (Maybe a)

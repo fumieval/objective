@@ -46,19 +46,17 @@ import Unsafe.Coerce
 --
 newtype Mortal f g a = Mortal { unMortal :: Object f (ExceptT a g) }
 
-instance (Functor m, Monad m) => Functor (Mortal f m) where
+instance Monad m => Functor (Mortal f m) where
   fmap f (Mortal obj) = Mortal (obj @>>^ mapExceptT (fmap (first f)))
   {-# INLINE fmap #-}
 
-instance (Functor m, Monad m) => Applicative (Mortal f m) where
-  pure = return
+instance Monad m => Applicative (Mortal f m) where
+  pure a = mortal $ const $ throwE a
   {-# INLINE pure #-}
   (<*>) = ap
   {-# INLINE (<*>) #-}
 
 instance Monad m => Monad (Mortal f m) where
-  return a = mortal $ const $ throwE a
-  {-# INLINE return #-}
   m >>= k = mortal $ \f -> lift (runExceptT $ runMortal m f) >>= \r -> case r of
     Left a -> runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
@@ -83,7 +81,7 @@ mortal_ = Mortal
 {-# INLINE mortal_ #-}
 
 -- | Turn an object into a mortal without death.
-immortal :: (Functor m, Monad m) => Object f m -> Mortal f m x
+immortal :: Monad m => Object f m -> Mortal f m x
 immortal obj = Mortal (obj @>>^ lift)
 {-# INLINE immortal #-}
 
@@ -101,12 +99,12 @@ apprisesOf l f p q = StateT $ \t -> liftM swap $ runWriterT $ flip l t
 --
 -- @apprises = apprisesOf wither@
 --
-apprises :: (Witherable t, Monad m, Applicative m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
+apprises :: (Witherable t, Monad m, Monoid r) => f a -> (a -> r) -> (b -> r) -> StateT (t (Mortal f m b)) m r
 apprises = apprisesOf wither
 {-# INLINE apprises #-}
 
 -- | Send a message to mortals in a container.
-apprise :: (Witherable t, Monad m, Applicative m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
+apprise :: (Witherable t, Monad m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
 apprise f = fmap (flip appEndo [] *** flip appEndo [])
   $ apprises f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
 {-# INLINE apprise #-}
