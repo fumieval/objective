@@ -33,8 +33,6 @@ import Data.Bifunctor
 import Data.Monoid
 import Witherable
 import Data.Tuple (swap)
-import Control.Arrow ((***))
-import Unsafe.Coerce
 
 -- | A 'Mortal' is an object that may die.
 -- A mortal yields a final result upon death.
@@ -56,7 +54,7 @@ instance Monad m => Applicative (Mortal f m) where
   {-# INLINE (<*>) #-}
 
 instance Monad m => Monad (Mortal f m) where
-  m >>= k = mortal $ \f -> lift (runExceptT $ runMortal m f) >>= \r -> case r of
+  m >>= k = mortal $ \f -> lift (runExceptT $ runMortal m f) >>= \case
     Left a -> runMortal (k a) f
     Right (x, m') -> return (x, m' >>= k)
 
@@ -66,15 +64,15 @@ instance MonadTrans (Mortal f) where
 
 -- | Construct a mortal in a 'Object' construction manner.
 mortal :: Monad m => (forall x. f x -> ExceptT a m (x, Mortal f m a)) -> Mortal f m a
-mortal f = unsafeCoerce f `asTypeOf` Mortal (Object (fmap (fmap unMortal) . f))
+mortal f = Mortal (Object (fmap (fmap unMortal) . f))
 {-# INLINE mortal #-}
 
 -- | Send a message to a mortal.
 runMortal :: Monad m => Mortal f m a -> f x -> ExceptT a m (x, Mortal f m a)
-runMortal = unsafeCoerce `asTypeOf` ((fmap (fmap Mortal) . ) . runObject . unMortal)
+runMortal = (fmap (fmap Mortal) . ) . runObject . unMortal
 {-# INLINE runMortal #-}
 
--- | Restricted 'Mortal' constuctor which can be applied to 'transit', 'fromFoldable' without ambiguousness.
+-- | A smart constructor of 'Mortal' where the result type is restricted to ()
 mortal_ :: Object f (ExceptT () g) -> Mortal f g ()
 mortal_ = Mortal
 {-# INLINE mortal_ #-}
@@ -94,6 +92,6 @@ apprises f p q = StateT $ \t -> fmap swap $ runWriterT $ flip wither t
 
 -- | Send a message to mortals in a container.
 apprise :: (Witherable t, Monad m) => f a -> StateT (t (Mortal f m r)) m ([a], [r])
-apprise f = fmap (flip appEndo [] *** flip appEndo [])
-  $ apprises f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
+apprise f = bimap (`appEndo` []) (`appEndo` [])
+  <$> apprises f (\a -> (Endo (a:), mempty)) (\b -> (mempty, Endo (b:)))
 {-# INLINE apprise #-}

@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes, TupleSections, TypeOperators #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE Safe #-}
 -----------------------------------------------------------------------------
 -- |
@@ -96,7 +97,7 @@ infixl 1 @<<@
 
 -- | Combine objects so as to handle a 'Functor.Sum' of interfaces.
 (@||@) :: Functor h => Object f h -> Object g h -> Object (f `Functor.Sum` g) h
-a @||@ b = Object $ \r -> case r of
+a @||@ b = Object $ \case
   Functor.InL f -> fmap (fmap (@||@b)) (runObject a f)
   Functor.InR g -> fmap (fmap (a@||@)) (runObject b g)
 
