@@ -1,3 +1,11 @@
+1.3
+----
+* Supported GHC 9.0
+* Removed `unfoldOM`
+* Removed `apprisesOf`
+* Removed `withBuilder`
+* Trimmed unnecessary dependencies
+
 1.2
 ----
 
