@@ -44,7 +44,7 @@ invokeOnUsing run m v f = mask $ \restore -> do
 -- In case of exception, the original object will be set.
 invokeOn :: (MonadIO m, MonadMask m)
          => (forall x. g x -> m x) -> Instance f g -> f a -> m a
-invokeOn = invokeOnUsing runObject
+invokeOn = invokeOnUsing (\o f -> runObject o f)
 {-# INLINE invokeOn #-}
 
 -- | Invoke a method.

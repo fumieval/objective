@@ -39,7 +39,6 @@ module Control.Object.Object (Object(..)
   , invokes
   , (@!=)
   , announce
-  , withListBuilder
   ) where
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Skeleton
@@ -60,7 +59,7 @@ newtype Object f g = Object { runObject :: forall x. f x -> g (x, Object f g) }
 
 -- | An infix alias for 'runObject'
 (@-) :: Object f g -> f x -> g (x, Object f g)
-(@-) = runObject
+a @- b = runObject a b
 {-# INLINE (@-) #-}
 infixr 3 @-
 
@@ -158,9 +157,6 @@ invokes = invokesOf traverse
 {-# INLINE invokes #-}
 
 -- | Send a message to objects in a traversable container.
---
--- @announce = withListBuilder . invokesOf traverse@
---
 announce :: (Traversable t, Monad m) => f a -> StateT (t (Object f m)) m [a]
 announce f = withListBuilder (invokes f)
 {-# INLINABLE announce #-}

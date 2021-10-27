@@ -1,4 +1,4 @@
-{-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE Safe #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
@@ -69,7 +69,7 @@ mortal f = Mortal (Object (fmap (fmap unMortal) . f))
 
 -- | Send a message to a mortal.
 runMortal :: Monad m => Mortal f m a -> f x -> ExceptT a m (x, Mortal f m a)
-runMortal = (fmap (fmap Mortal) . ) . runObject . unMortal
+runMortal m f = fmap Mortal <$> runObject (unMortal m) f
 {-# INLINE runMortal #-}
 
 -- | A smart constructor of 'Mortal' where the result type is restricted to ()
